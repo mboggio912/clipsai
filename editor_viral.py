@@ -191,57 +191,102 @@ class VideoEditor:
         return hooks[0]
     
     def aplicar_formato_vertical(self, video_path: str, salida: str) -> bool:
-        """Convierte video a formato vertical 9:16."""
+        """Convierte video a formato vertical 9:16 con detección de cara."""
         log.info("[4/8] Aplicando formato vertical...")
         
         try:
-            info = self.obtener_info_video(video_path)
-            streams = info.get('streams', [])
+            import cv2
+            import numpy as np
             
-            ancho = 1920
-            alto = 1080
-            tiene_video = False
-            tiene_audio = False
+            cap = cv2.VideoCapture(video_path)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            ancho = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            alto = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            cap.release()
             
-            for stream in streams:
-                if stream.get('codec_type') == 'video':
-                    ancho = int(stream.get('width', 1920))
-                    alto = int(stream.get('height', 1080))
-                    tiene_video = True
-                elif stream.get('codec_type') == 'audio':
-                    tiene_audio = True
-            
-            if not tiene_video:
-                log.error("      No se encontró stream de video")
+            if ancho <= 0 or alto <= 0:
+                log.error("      No se pudo leer dimensiones del video")
                 return False
             
-            ratio = ancho / alto
-            ratio_objetivo = 9 / 16
+            posiciones_x = []
+            posiciones_y = []
             
-            if abs(ratio - ratio_objetivo) < 0.1:
-                filtro = f"scale={self.ancho_final}:{self.alto_final}"
+            cap = cv2.VideoCapture(video_path)
+            sample_interval = max(1, int(fps * 3))
+            frame_idx = 0
+            frames_procesados = 0
+            
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            
+            if face_cascade.empty():
+                log.warning("      No se pudo cargar Haar Cascade")
             else:
-                if ratio > ratio_objetivo:
-                    nuevo_ancho = int(alto * ratio_objetivo)
-                    crop_x = (ancho - nuevo_ancho) // 2
-                    filtro = f"crop={nuevo_ancho}:{alto}:{crop_x}:0,scale={self.ancho_final}:{self.alto_final}"
-                else:
-                    nuevo_alto = int(ancho / ratio_objetivo)
-                    crop_y = (alto - nuevo_alto) // 2
-                    filtro = f"crop={ancho}:{nuevo_alto}:0:{crop_y},scale={self.ancho_final}:{self.alto_final}"
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    
+                    if frame_idx % sample_interval == 0:
+                        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                        faces = face_cascade.detectMultiScale(
+                            gray, scaleFactor=1.1, minNeighbors=5, minSize=(50, 50)
+                        )
+                        
+                        if len(faces) > 0:
+                            x, y, w, h = faces[0]
+                            cx = x + w // 2
+                            cy = y + h // 2
+                            posiciones_x.append(cx)
+                            posiciones_y.append(cy)
+                            frames_procesados += 1
+                    
+                    frame_idx += 1
+                
+                cap.release()
+            
+            ratio_objetivo = 9 / 16
+            ancho_crop = int(alto * ratio_objetivo)
+            
+            if posiciones_x and frames_procesados > 0:
+                cx_promedio = np.mean(posiciones_x)
+                cy_promedio = np.mean(posiciones_y)
+                
+                crop_x = int(cx_promedio - ancho_crop / 2)
+                crop_x = max(0, min(crop_x, ancho - ancho_crop))
+                
+                log.info(f"      Cara detectada en {frames_procesados} frames")
+                log.info(f"      Centro promedio: ({cx_promedio:.0f}, {cy_promedio:.0f})")
+                log.info(f"      Crop X: {crop_x}")
+            else:
+                crop_x = (ancho - ancho_crop) // 2
+                log.warning("      No se detectó cara - usando crop centrado")
+            
+            filtro = (
+                f"crop={ancho_crop}:{alto}:{crop_x}:0,"
+                f"scale={self.ancho_final}:{self.alto_final},"
+                f"eq=brightness=0.02:saturation=1.1"
+            )
             
             cmd = [
                 "ffmpeg", "-y", "-i", video_path,
                 "-vf", filtro,
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "17",
                 "-c:a", "aac", "-b:a", "192k",
-                "-r", str(self.fps)
+                "-r", str(self.fps),
+                "-movflags", "+faststart",
+                salida
             ]
-            
-            cmd.append(salida)
             
             subprocess.run(cmd, capture_output=True, check=True)
             log.info(f"      Video vertical creado")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            log.error(f"      Error: {e.stderr.decode() if e.stderr else e}")
+            return False
+        except Exception as e:
+            log.error(f"      Error: {e}")
+            return False
             return True
             
         except subprocess.CalledProcessError as e:

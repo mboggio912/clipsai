@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Subtítulos sincronizados con timing preciso basado en timestamps de YouTube.
-Los timestamps son la fuente de verdad - no se modifican.
+Subtítulos sincronizados con animaciones estilo viral TikTok/Reels.
+- Cada palabra aparece individualmente
+- Alternancia de colores (blanco/amarillo)
+- Animación pop-in suave
+- Timing basado en timestamps originales de YouTube
 """
 
 import os
@@ -40,9 +43,7 @@ def segundos_a_ts(seg: float) -> str:
 def leer_transcripcion(ruta: str) -> List[Tuple[float, str]]:
     """
     Parsea transcripcion_formatted.txt con formato: HH:MM:SS - Texto
-    
-    Returns:
-        Lista de tuplas (tiempo_en_segundos_float, texto_string)
+    Returns: Lista de tuplas (tiempo_en_segundos_float, texto_string)
     """
     if not os.path.exists(ruta):
         print(f"  ERROR: No existe {ruta}")
@@ -67,8 +68,6 @@ def leer_transcripcion(ruta: str) -> List[Tuple[float, str]]:
             
             if texto:
                 segmentos.append((tiempo, texto))
-        else:
-            print(f"  AVISO: Línea ignorada (formato inválido): {linea[:50]}...")
 
     print(f"  Transcripción: {len(segmentos)} segmentos leídos de '{ruta}'")
     for t, txt in segmentos[:3]:
@@ -79,21 +78,21 @@ def leer_transcripcion(ruta: str) -> List[Tuple[float, str]]:
     return segmentos
 
 
-def _dividir_texto(texto: str, palabras_por_chunk: int = 6) -> List[str]:
-    """Divide texto en chunks de palabras."""
-    palabras = texto.split()
-    if len(palabras) <= palabras_por_chunk:
-        return [texto]
-    
-    chunks = []
-    for i in range(0, len(palabras), palabras_por_chunk):
-        chunk = ' '.join(palabras[i:i + palabras_por_chunk])
-        chunks.append(chunk)
-    
-    return chunks
+ASS_HEADER = """\
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+ScaledBorderAndShadow: yes
 
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Blanco,Arial,82,&H00FFFFFF,&H000000FF,&H00000000,&H88000000,-1,0,0,0,100,100,2,0,1,4,2,2,60,60,180,1
+Style: Amarillo,Arial,82,&H0000FFFF,&H000000FF,&H00000000,&H88000000,-1,0,0,0,100,100,2,0,1,4,2,2,60,60,180,1
 
-MAX_DURACION_SEGMENTO = 2.5
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
 
 
 def generar_ass(
@@ -103,19 +102,17 @@ def generar_ass(
     duracion_clip: float = None,
 ) -> bool:
     """
-    Genera archivo ASS con subtítulos sincronizados.
+    Genera archivo ASS con subtítulos animados estilo viral.
     
-    Lógica de timing:
-    - Cada segmento tiene timestamp ABSOLUTO del video original
-    - Convertimos a tiempo RELATIVO restando inicio_clip
-    - Filtramos solo segmentos dentro del rango del clip
-    - Si un segmento dura más de MAX_DURACION_SEGMENTO (2.5s), lo dividimos en chunks
+    Características:
+    - Cada palabra aparece individualmente
+    - Alternancia de colores (blanco/amarillo)
+    - Animación pop-in suave
+    - Duración por palabra: 0.25s - 1.2s
     """
     if not segmentos:
         print("  AVISO: Lista de segmentos vacía")
         return False
-    
-    fin_clip = inicio_clip + duracion_clip if duracion_clip else float('inf')
     
     segs_en_rango = []
     for t_abs, texto in segmentos:
@@ -131,74 +128,46 @@ def generar_ass(
     
     if en_rango == 0:
         print(f"  AVISO: Ningún segmento cae en el rango del clip")
-        print(f"  Clip: {segundos_a_ts(inicio_clip)} -> {segundos_a_ts(fin_clip)}")
         return False
     
-    lineas_ass = []
-    lineas_ass.append("[Script Info]")
-    lineas_ass.append("ScriptType: v4.00+")
-    lineas_ass.append("PlayResX: 1080")
-    lineas_ass.append("PlayResY: 1920")
-    lineas_ass.append("ScaledBorderAndShadow: yes")
-    lineas_ass.append("")
-    lineas_ass.append("[V4+ Styles]")
-    lineas_ass.append("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding")
-    lineas_ass.append("Style: Viral,Arial,78,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,2,0,1,5,2,2,60,60,140,1")
-    lineas_ass.append("")
-    lineas_ass.append("[Events]")
-    lineas_ass.append("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text")
-    
+    lineas_ass = [ASS_HEADER]
     total_lineas_ass = 0
-    primer_tiempo = None
-    ultimo_tiempo = None
+    palabra_idx = 0
     
     for i, (t_rel, t_abs, texto) in enumerate(segs_en_rango):
         t_siguiente_rel = segs_en_rango[i + 1][0] if i + 1 < len(segs_en_rango) else t_rel + 3.0
-        duracion_natural = t_siguiente_rel - t_rel
+        duracion_segmento = t_siguiente_rel - t_rel
         
-        if duracion_natural > MAX_DURACION_SEGMENTO and len(texto.split()) > 6:
-            n_chunks = max(2, int(duracion_natural / MAX_DURACION_SEGMENTO) + 1)
-            chunks = _dividir_texto(texto, palabras_por_chunk=6)
-            n_chunks = min(n_chunks, len(chunks))
+        palabras = texto.split()
+        num_palabras = len(palabras)
+        
+        if num_palabras == 0:
+            continue
+        
+        dur_por_palabra = duracion_segmento / num_palabras
+        dur_por_palabra = max(0.25, min(1.2, dur_por_palabra))
+        
+        for j, palabra in enumerate(palabras):
+            p_ini = t_rel + j * dur_por_palabra
+            p_fin = p_ini + dur_por_palabra
             
-            dur_por_chunk = duracion_natural / n_chunks
+            estilo = "Blanco" if palabra_idx % 2 == 0 else "Amarillo"
+            palabra_idx += 1
             
-            for j in range(n_chunks):
-                chunk_texto = chunks[j] if j < len(chunks) else chunks[0]
-                c_ini = t_rel + j * dur_por_chunk
-                c_fin = c_ini + dur_por_chunk - 0.05
-                
-                if primer_tiempo is None:
-                    primer_tiempo = c_ini
-                ultimo_tiempo = c_fin
-                
-                ini_ass = segundos_a_ass(c_ini)
-                fin_ass = segundos_a_ass(c_fin)
-                
-                linea = f"Dialogue: 0,{ini_ass},{fin_ass},Viral,,0,0,0,,{{\\fad(80,150)}}{chunk_texto.upper()}"
-                lineas_ass.append(linea)
-                total_lineas_ass += 1
-        else:
-            t_ini = t_rel
-            t_fin = min(t_siguiente_rel - 0.05, t_rel + MAX_DURACION_SEGMENTO)
+            animacion = r"{\fad(60,100)\fscx115\fscy115\t(0,120,\fscx108\fscy108)}"
+            texto_ass = palabra.upper()
             
-            if primer_tiempo is None:
-                primer_tiempo = t_ini
-            ultimo_tiempo = t_fin
+            ini_ass = segundos_a_ass(p_ini)
+            fin_ass = segundos_a_ass(p_fin)
             
-            ini_ass = segundos_a_ass(t_ini)
-            fin_ass = segundos_a_ass(t_fin)
-            
-            linea = f"Dialogue: 0,{ini_ass},{fin_ass},Viral,,0,0,0,,{{\\fad(80,150)}}{texto.upper()}"
+            linea = f"Dialogue: 0,{ini_ass},{fin_ass},{estilo},,0,0,0,,{animacion}{texto_ass}"
             lineas_ass.append(linea)
             total_lineas_ass += 1
     
-    with open(ruta_ass, "w", encoding="utf-8") as f:
+    with open(ruta_ass, "w", encoding="utf-8", newline='\n') as f:
         f.write('\n'.join(lineas_ass) + '\n')
     
-    print(f"  Líneas ASS generadas: {total_lineas_ass}")
-    if primer_tiempo is not None and ultimo_tiempo is not None:
-        print(f"  Rango de tiempo: {segundos_a_ts(primer_tiempo)} -> {segundos_a_ts(ultimo_tiempo)}")
+    print(f"  Líneas ASS generadas: {total_lineas_ass} (palabras)")
     
     return True
 
@@ -219,7 +188,7 @@ def crear_video_con_subtitulos(
 
     ruta_ass = video_salida.replace(".mp4", "_subs.ass")
 
-    print(f"  Generando subtítulos sincronizados...")
+    print(f"  Generando subtítulos virales animados...")
     ok = generar_ass(segmentos, ruta_ass, inicio_clip, duracion_clip)
     
     if not ok:
@@ -242,7 +211,7 @@ def crear_video_con_subtitulos(
     try:
         r = subprocess.run(cmd, capture_output=True, timeout=300)
         if r.returncode == 0:
-            print("  ✓ Subtítulos sincronizados aplicados")
+            print("  ✓ Subtítulos virales aplicados")
             try:
                 os.remove(ruta_ass)
             except Exception:

@@ -113,6 +113,36 @@ def detectar_momentos_intensos(rms: np.ndarray, tiempos: np.ndarray, umbral: flo
     return eventos
 
 
+def detectar_cambios_escena(y: np.ndarray, sr: int) -> List[EventoAudio]:
+    """
+    Detecta cambios abruptos de tema/escena usando spectral flux.
+    Útil para encontrar puntos de corte naturales entre temas del video.
+    """
+    eventos = []
+    
+    try:
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+        
+        onsets = librosa.onset.onset_detect(
+            onset_envelope=onset_env,
+            sr=sr,
+            units='time',
+            delta=0.5,
+            wait=2
+        )
+        
+        for t in onsets:
+            eventos.append(EventoAudio(
+                timestamp=segundos_a_timestamp(t),
+                evento="cambio_escena",
+                intensidad=5.0
+            ))
+    except Exception as e:
+        print(f"  AVISO: Error detectando cambios de escena: {e}")
+    
+    return eventos
+
+
 def limpiar_eventos(eventos: List[EventoAudio], separacion_min: int = 2) -> List[EventoAudio]:
     """Elimina eventos duplicados muy cercanos."""
     if not eventos:
@@ -223,7 +253,11 @@ def analizar_audio(audio_path: str = "audio.mp3", salida_path: str = "audio.json
         momentos_intensos = detectar_momentos_intensos(rms, tiempos)
         print(f"  Momentos intensos detectados: {len(momentos_intensos)}")
         
+        cambios_escena = detectar_cambios_escena(y, sr)
+        print(f"  Cambios de escena detectados: {len(cambios_escena)}")
+        
         eventos.extend(momentos_intensos)
+        eventos.extend(cambios_escena)
         
         print("\nLimpiando eventos...")
         eventos = limpiar_eventos(eventos, separacion_min=2)

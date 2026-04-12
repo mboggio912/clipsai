@@ -84,60 +84,72 @@ def analizar_audio_video(audio_path: str = "audio.mp3", max_eventos: int = 30) -
         return []
 
 
-def leer_transcripcion(ruta: str, max_chars: int = 8000) -> str:
-    """Lee el archivo de transcripción."""
-    print("[3/6] Leyendo transcripción...")
+def leer_transcripcion_completa(ruta: str) -> str:
+    """Lee el archivo completo sin límite. Usar para formatear_transcripcion()."""
+    with open(ruta, "r", encoding="utf-8") as f:
+        return f.read().strip()
+
+
+def leer_transcripcion_para_ia(ruta: str, max_chars: int = 6000) -> str:
+    """Lee con límite de chars. Usar solo para construir el prompt de la IA."""
     with open(ruta, "r", encoding="utf-8") as f:
         contenido = f.read().strip()
-    
     if len(contenido) > max_chars:
-        contenido = contenido[:max_chars]
-        print(f"      Transcripción truncada: {len(contenido)} caracteres")
-    else:
-        print(f"      Transcripción leída: {len(contenido)} caracteres")
-    
+        contenido = contenido[:max_chars].rsplit('\n', 1)[0]
+        print(f"      Transcripción truncada para IA: {len(contenido)} caracteres")
     return contenido
+
+
+def leer_transcripcion(ruta: str, max_chars: int = 8000) -> str:
+    """Lee el archivo de transcripción (deprecated, usar leer_transcripcion_completa o leer_transcripcion_para_ia)."""
+    return leer_transcripcion_completa(ruta)
 
 
 def formatear_transcripcion(transcripcion_raw: str, salida_path: str = "transcripcion_formatted.txt") -> str:
     """
     Convierte la transcripción cruda de YouTube al formato HH:MM:SS - Texto
     SIN modificar los timestamps ni el texto. Solo limpia y reformatea.
+    Procesa TODAS las líneas sin límite.
     """
     import re
     
-    print("[3.5/6] Formateando transcripción...")
+    print("[3.5/6] Formateando transcripción completa...")
     
     lineas_raw = transcripcion_raw.strip().split('\n')
     segmentos = []
+    texto_pendiente = ""
     timestamp_actual = None
+    
+    RE_TS = re.compile(r'^(\d{1,2}:\d{2}(?::\d{2})?)')
+    RE_SEG = re.compile(r'^\d+\s+(segundo|minuto|hora)s?', re.IGNORECASE)
+    RE_MIN = re.compile(r'^\d+\s+minutos?\s+y\s+\d+\s+segundos?', re.IGNORECASE)
     
     for linea in lineas_raw:
         linea = linea.strip()
         if not linea:
             continue
         
-        timestamp_match = re.match(r'^(\d{1,2}:\d{2}(?::\d{2})?)', linea)
-        if timestamp_match:
-            ts_str = timestamp_match.group(1)
-            texto_despues = linea[len(ts_str):].strip()
+        match_ts = RE_TS.match(linea)
+        if match_ts:
+            if texto_pendiente and timestamp_actual:
+                h, m, s = _parse_timestamp(timestamp_actual)
+                segmentos.append((f"{h:02d}:{m:02d}:{s:02d}", texto_pendiente))
             
-            pat_descripcion = r'^\d+\s*(segundo|minuto|hora)s?(\s+y\s+\d+\s*(segundo|minuto)s?)?\s*'
-            texto_limpio = re.sub(pat_descripcion, '', texto_despues, flags=re.IGNORECASE).strip()
+            ts_str = match_ts.group(1)
+            texto_restante = linea[len(match_ts.group(0)):].strip()
+            
+            texto_restante = RE_SEG.sub('', texto_restante)
+            texto_restante = RE_MIN.sub('', texto_restante)
             
             timestamp_actual = ts_str
-        elif timestamp_actual and texto_limpio:
-            texto_limpio = linea
+            texto_pendiente = texto_restante
         else:
-            continue
-        
-        if not texto_limpio:
-            continue
-        
+            if texto_pendiente:
+                texto_pendiente += " " + linea
+    
+    if texto_pendiente and timestamp_actual:
         h, m, s = _parse_timestamp(timestamp_actual)
-        ts_formateado = f"{h:02d}:{m:02d}:{s:02d}"
-        
-        segmentos.append((ts_formateado, texto_limpio))
+        segmentos.append((f"{h:02d}:{m:02d}:{s:02d}", texto_pendiente))
     
     if not segmentos:
         print("      ✗ No se pudieron parsear segmentos")
@@ -147,7 +159,10 @@ def formatear_transcripcion(transcripcion_raw: str, salida_path: str = "transcri
         for ts, texto in segmentos:
             f.write(f"{ts} - {texto}\n")
     
+    ts_primero = segmentos[0][0]
+    ts_ultimo = segmentos[-1][0]
     print(f"      ✓ Transcripción formateada: {salida_path} ({len(segmentos)} segmentos)")
+    print(f"      Rango: {ts_primero} hasta {ts_ultimo}")
     for i, (ts, txt) in enumerate(segmentos[:5]):
         print(f"        {ts}: {txt[:50]}...")
     
@@ -501,12 +516,14 @@ def main():
     
     if len(sys.argv) < 2:
         print("\nUso:")
-        print("  Modo automático:   python main.py video.mp4 transcripcion.txt")
-        print("  Solo mejor clip:  python main.py video.mp4 transcripcion.txt --single")
-        print("  Manual:           python main.py video.mp4 00:01:00 00:01:30")
+        print("  Con transcripción manual: python main.py video.mp4 transcripcion.txt")
+        print("  Modo automático (Whisper): python main.py video.mp4")
+        print("  Solo mejor clip: python main.py video.mp4 --single")
+        print("  Corte manual: python main.py video.mp4 00:01:00 00:01:30")
         print("\nEjemplos:")
         print("  python main.py video.mp4 transcripcion.txt")
-        print("  python main.py video.mp4 transcripcion.txt --single")
+        print("  python main.py video.mp4  (usa Whisper automático)")
+        print("  python main.py video.mp4 --single")
         print("=" * 50)
         sys.exit(1)
     
@@ -523,9 +540,13 @@ def main():
     carpeta = crear_carpeta_salida("clips")
     print(f"\nCarpeta: {os.path.abspath(carpeta)}\n")
     
+    modo_whisper = False
+    transcripcion_path = None
+    modo_single = False
+    
     if len(sys.argv) >= 4:
         if sys.argv[3] == "--single":
-            transcripcion = sys.argv[2]
+            transcripcion_path = sys.argv[2]
             modo_single = True
         else:
             inicio = sys.argv[2]
@@ -547,17 +568,22 @@ def main():
             else:
                 print("\n✗ Error al cortar clip")
             sys.exit(0)
+    elif len(sys.argv) >= 3:
+        transcripcion_path = sys.argv[2]
+        if sys.argv[2] == "--single":
+            modo_single = True
+            transcripcion_path = None
+        elif not os.path.exists(transcripcion_path):
+            print(f"\nError: Transcripción '{transcripcion_path}' no encontrada\n")
+            sys.exit(1)
     else:
-        transcripcion = sys.argv[2]
-        modo_single = False
-    
-    if not os.path.exists(transcripcion):
-        print(f"\nError: Transcripción '{transcripcion}' no encontrada\n")
-        sys.exit(1)
+        modo_whisper = True
     
     print("MODO AUTOMÁTICO")
     if modo_single:
         print("  (Solo el mejor clip)")
+    if modo_whisper:
+        print("  (Transcripción con Whisper)")
     print("=" * 50)
     
     try:
@@ -569,9 +595,40 @@ def main():
         else:
             print("      Saltando análisis de audio (audio_analyzer no instalado)")
         
-        texto = leer_transcripcion(transcripcion)
-        transcripcion_formatted = formatear_transcripcion(texto)
-        clips_ia = obtener_clips_ia(texto, datos_audio)
+        if modo_whisper:
+            try:
+                from whisper_transcriber import transcribir_video
+                print("\n[3/6] Transcribiendo con faster-whisper...")
+                transcribir_video(video, "transcripcion_formatted.txt")
+            except ImportError:
+                print("\nERROR: faster-whisper no instalado")
+                print("Instalar con: pip install faster-whisper")
+                print("O usar transcripción manual: python main.py video.mp4 transcripcion.txt")
+                sys.exit(1)
+        else:
+            print("\n[3/6] Formateando transcripción...")
+            if transcripcion_path:
+                transcripcion_formatted = formatear_transcripcion(leer_transcripcion_completa(transcripcion_path))
+            else:
+                transcripcion_formatted = "transcripcion_formatted.txt"
+                if not os.path.exists(transcripcion_formatted):
+                    print("ERROR: No hay transcripción disponible")
+                    print("Usar: python main.py video.mp4 transcripcion.txt")
+                    sys.exit(1)
+        
+        texto_para_ia = ""
+        if transcripcion_path and os.path.exists(transcripcion_path):
+            texto_para_ia = leer_transcripcion_para_ia(transcripcion_path)
+        elif os.path.exists("transcripcion_formatted.txt"):
+            with open("transcripcion_formatted.txt", "r", encoding="utf-8") as f:
+                contenido = f.read()
+                texto_para_ia = contenido[:6000] if len(contenido) > 6000 else contenido
+        
+        if texto_para_ia:
+            clips_ia = obtener_clips_ia(texto_para_ia, datos_audio)
+        else:
+            clips_ia = []
+        
         clips_validos = validar_clips(clips_ia)
         
         if not clips_validos:
