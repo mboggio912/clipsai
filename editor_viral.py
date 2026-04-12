@@ -127,40 +127,6 @@ class VideoEditor:
         
         return x_offset, y_offset, nuevo_ancho, self.alto_final
     
-    def generar_subtitulos_basico(self, video_path: str) -> List[Dict]:
-        """Genera subtítulos básicos sincronizados (sin Whisper)."""
-        log.info("[2/8] Generando subtítulos...")
-        
-        try:
-            import cv2
-            
-            cap = cv2.VideoCapture(video_path)
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            duracion = total_frames / fps
-            
-            subtitulos = []
-            num_subtitulos = int(duracion / 3)
-            
-            for i in range(num_subtitulos):
-                inicio = i * 3
-                fin = min((i + 1) * 3, duracion)
-                
-                subtitulos.append({
-                    "inicio": inicio,
-                    "fin": fin,
-                    "texto": f"Momento {i + 1}",
-                    "palabras": [{"palabra": f"Palabra {j+1}", "start": inicio + j*0.5} for j in range(min(4, int(fin-inicio)*2))]
-                })
-            
-            cap.release()
-            log.info(f"      Subtítulos generados: {len(subtitulos)}")
-            return subtitulos
-            
-        except Exception as e:
-            log.error(f"      Error generando subtítulos: {e}")
-            return []
-    
     def detectar_momentos_clave(self, video_path: str) -> List[Dict]:
         """Detecta momentos clave basado en análisis de audio."""
         log.info("[3/8] Detectando momentos clave...")
@@ -234,24 +200,26 @@ class VideoEditor:
             
             ancho = 1920
             alto = 1080
+            tiene_video = False
+            tiene_audio = False
             
             for stream in streams:
                 if stream.get('codec_type') == 'video':
                     ancho = int(stream.get('width', 1920))
                     alto = int(stream.get('height', 1080))
-                    break
+                    tiene_video = True
+                elif stream.get('codec_type') == 'audio':
+                    tiene_audio = True
+            
+            if not tiene_video:
+                log.error("      No se encontró stream de video")
+                return False
             
             ratio = ancho / alto
             ratio_objetivo = 9 / 16
             
             if abs(ratio - ratio_objetivo) < 0.1:
-                cmd = [
-                    "ffmpeg", "-y", "-i", video_path,
-                    "-vf", f"scale={self.ancho_final}:{self.alto_final}",
-                    "-c:a", "copy",
-                    "-r", str(self.fps),
-                    salida
-                ]
+                filtro = f"scale={self.ancho_final}:{self.alto_final}"
             else:
                 if ratio > ratio_objetivo:
                     nuevo_ancho = int(alto * ratio_objetivo)
@@ -261,14 +229,16 @@ class VideoEditor:
                     nuevo_alto = int(ancho / ratio_objetivo)
                     crop_y = (alto - nuevo_alto) // 2
                     filtro = f"crop={ancho}:{nuevo_alto}:0:{crop_y},scale={self.ancho_final}:{self.alto_final}"
-                
-                cmd = [
-                    "ffmpeg", "-y", "-i", video_path,
-                    "-vf", filtro,
-                    "-c:a", "copy",
-                    "-r", str(self.fps),
-                    salida
-                ]
+            
+            cmd = [
+                "ffmpeg", "-y", "-i", video_path,
+                "-vf", filtro,
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+                "-c:a", "aac", "-b:a", "192k",
+                "-r", str(self.fps)
+            ]
+            
+            cmd.append(salida)
             
             subprocess.run(cmd, capture_output=True, check=True)
             log.info(f"      Video vertical creado")
@@ -360,6 +330,7 @@ class VideoEditor:
                 "ffmpeg", "-y", "-i", video_path,
                 "-af", filtro,
                 "-c:v", "copy",
+                "-preset", "ultrafast",
                 salida
             ]
             
@@ -410,54 +381,58 @@ class VideoEditor:
             
             momentos = self.detectar_momentos_clave(str(clip_path))
             
+            trans_file = None
             if transcripcion_path and os.path.exists(transcripcion_path):
-                from sub_reales import crear_video_con_subtitulos, leer_transcripcion, ts_a_segundos
+                trans_file = transcripcion_path
+            elif os.path.exists("transcripcion_formatted.txt"):
+                trans_file = "transcripcion_formatted.txt"
+            elif os.path.exists(str(self.clips_dir / "transcripcion_formatted.txt")):
+                trans_file = str(self.clips_dir / "transcripcion_formatted.txt")
+            
+            info_path = self.clips_dir / "clips_info.json"
+            inicio_clip = 0.0
+            duracion_clip = 60.0
+            
+            if info_path.exists():
                 import json as json_lib
+                with open(info_path, 'r') as f:
+                    info_clips = json_lib.load(f)
+                if index < len(info_clips):
+                    from sub_reales import ts_a_segundos
+                    info = info_clips[index]
+                    inicio_clip = ts_a_segundos(info['inicio'])
+                    fin_clip = ts_a_segundos(info['fin'])
+                    duracion_clip = fin_clip - inicio_clip
+            
+            if trans_file:
+                from sub_reales import leer_transcripcion, crear_video_con_subtitulos
                 
-                log.info(f"[5/8] Agregando subtítulos desde: {transcripcion_path}")
+                log.info(f"[5/8] Subtítulos: usando {os.path.basename(trans_file)}")
+                log.info(f"      Clip inicia en: {segundos_a_ts(inicio_clip)} ({inicio_clip:.0f}s)")
+                log.info(f"      Duración del clip: {duracion_clip:.0f}s")
+                log.info(f"      Buscando segmentos entre {inicio_clip:.0f}s y {inicio_clip + duracion_clip:.0f}s...")
                 
-                # Leer info de clips
-                info_path = self.clips_dir / "clips_info.json"
-                inicio_clip = 0
-                duracion_clip = 60
-                
-                if info_path.exists():
-                    with open(info_path, 'r') as f:
-                        info_clips = json_lib.load(f)
-                    if index < len(info_clips):
-                        info = info_clips[index]
-                        inicio_clip = ts_a_segundos(info['inicio'])
-                        fin_clip = ts_a_segundos(info['fin'])
-                        duracion_clip = fin_clip - inicio_clip
-                        log.info(f"      Clip: {info['inicio']} - {info['fin']} ({duracion_clip}s)")
-                
-                segmentos = leer_transcripcion(transcripcion_path)
-                log.info(f"      Segmentos leídos: {len(segmentos)}")
+                segmentos = leer_transcripcion(trans_file)
                 
                 if segmentos:
-                    crear_video_con_subtitulos(
+                    ok = crear_video_con_subtitulos(
                         str(temp_vertical), 
                         segmentos, 
                         str(temp_subs), 
                         inicio_clip,
                         duracion_clip
                     )
-                    temp_subs = temp_vertical
+                    if ok:
+                        log.info(f"      Subtítulos sincronizados aplicados")
+                    else:
+                        log.warning("      Falló subtítulos - pasando sin subtítulos")
+                        temp_subs = temp_vertical
                 else:
-                    log.warning("      Sin segmentos - saltando")
+                    log.warning("      Sin segmentos - pasando sin subtítulos")
                     temp_subs = temp_vertical
             else:
-                from subtitulos_virales import crear_clip_con_efectos
-                subtitulos = self.generar_subtitulos_basico(str(clip_path))
-                hook = self.crear_hook_inicial(momentos[0] if momentos else None)
-                
-                crear_clip_con_efectos(
-                    str(temp_vertical),
-                    str(temp_subs),
-                    subtitulos,
-                    momentos,
-                    hook
-                )
+                log.warning("[5/8] Subtítulos: OMITIDOS (no se encontró transcripción)")
+                temp_subs = temp_vertical
             
             self.mejorar_audio(str(temp_subs), str(salida_final))
             
@@ -503,19 +478,59 @@ class VideoEditor:
         return resultados
 
 
+def segundos_a_ts(segundos: float) -> str:
+    """Convierte segundos a HH:MM:SS."""
+    h = int(segundos // 3600)
+    m = int((segundos % 3600) // 60)
+    s = int(segundos % 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
+
+
 def main():
     """Función principal."""
     import sys
+    from pathlib import Path
     
-    clips_dir = sys.argv[1] if len(sys.argv) > 1 else "clips"
+    if len(sys.argv) < 2:
+        print("\nEDITOR DE VIDEOS VIRALES")
+        print("=" * 50)
+        print("Uso:")
+        print("  Procesar todos: python editor_viral.py [carpeta_clips] [carpeta_salida] [transcripcion.txt]")
+        print("  Procesar 1 clip: python editor_viral.py clips/clip_1.mp4 [carpeta_salida] [transcripcion.txt]")
+        print("\nEjemplos:")
+        print("  python editor_viral.py clips clips_editados transcripcion.txt")
+        print("  python editor_viral.py clips/clip_1.mp4 clips_editados transcripcion.txt")
+        print("  python editor_viral.py clips clips_editados")
+        print("=" * 50)
+        sys.exit(1)
+    
+    clips_input = sys.argv[1]
     salida_dir = sys.argv[2] if len(sys.argv) > 2 else "clips_editados"
     transcripcion = sys.argv[3] if len(sys.argv) > 3 else None
     
-    editor = VideoEditor(clips_dir, salida_dir)
-    resultados = editor.procesar_todos(transcripcion)
-    
-    for r in resultados:
-        print(f"  - {r}")
+    input_path = Path(clips_input)
+    if input_path.is_file():
+        clips_dir = str(input_path.parent)
+        clip_index = None
+        for i, f in enumerate(sorted(input_path.parent.glob("*.mp4"))):
+            if f.name == input_path.name:
+                clip_index = i
+                break
+        if clip_index is None:
+            clip_index = 0
+        
+        print(f"\nProcesando clip individual: {clips_input}")
+        editor = VideoEditor(clips_dir, salida_dir)
+        resultado = editor.procesar_clip(input_path, clip_index, transcripcion)
+        if resultado:
+            print(f"\nClip procesado: {resultado}")
+        else:
+            print("\nError al procesar clip")
+    else:
+        editor = VideoEditor(clips_input, salida_dir)
+        resultados = editor.procesar_todos(transcripcion)
+        for r in resultados:
+            print(f"  - {r}")
 
 
 if __name__ == "__main__":

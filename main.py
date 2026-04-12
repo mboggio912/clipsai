@@ -20,8 +20,8 @@ except ImportError:
 
 
 API_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "llama-3.1-8b-instant"
-TIMEOUT = 60
+MODEL = "llama-3.3-70b-versatile"
+TIMEOUT = 120
 
 
 def verificar_ffmpeg() -> bool:
@@ -97,6 +97,71 @@ def leer_transcripcion(ruta: str, max_chars: int = 8000) -> str:
         print(f"      Transcripción leída: {len(contenido)} caracteres")
     
     return contenido
+
+
+def formatear_transcripcion(transcripcion_raw: str, salida_path: str = "transcripcion_formatted.txt") -> str:
+    """
+    Convierte la transcripción cruda de YouTube al formato HH:MM:SS - Texto
+    SIN modificar los timestamps ni el texto. Solo limpia y reformatea.
+    """
+    import re
+    
+    print("[3.5/6] Formateando transcripción...")
+    
+    lineas_raw = transcripcion_raw.strip().split('\n')
+    segmentos = []
+    timestamp_actual = None
+    
+    for linea in lineas_raw:
+        linea = linea.strip()
+        if not linea:
+            continue
+        
+        timestamp_match = re.match(r'^(\d{1,2}:\d{2}(?::\d{2})?)', linea)
+        if timestamp_match:
+            ts_str = timestamp_match.group(1)
+            texto_despues = linea[len(ts_str):].strip()
+            
+            pat_descripcion = r'^\d+\s*(segundo|minuto|hora)s?(\s+y\s+\d+\s*(segundo|minuto)s?)?\s*'
+            texto_limpio = re.sub(pat_descripcion, '', texto_despues, flags=re.IGNORECASE).strip()
+            
+            timestamp_actual = ts_str
+        elif timestamp_actual and texto_limpio:
+            texto_limpio = linea
+        else:
+            continue
+        
+        if not texto_limpio:
+            continue
+        
+        h, m, s = _parse_timestamp(timestamp_actual)
+        ts_formateado = f"{h:02d}:{m:02d}:{s:02d}"
+        
+        segmentos.append((ts_formateado, texto_limpio))
+    
+    if not segmentos:
+        print("      ✗ No se pudieron parsear segmentos")
+        return transcripcion_raw
+    
+    with open(salida_path, "w", encoding="utf-8") as f:
+        for ts, texto in segmentos:
+            f.write(f"{ts} - {texto}\n")
+    
+    print(f"      ✓ Transcripción formateada: {salida_path} ({len(segmentos)} segmentos)")
+    for i, (ts, txt) in enumerate(segmentos[:5]):
+        print(f"        {ts}: {txt[:50]}...")
+    
+    return salida_path
+
+
+def _parse_timestamp(ts: str) -> tuple:
+    """Convierte timestamp M:SS o H:MM:SS a (h, m, s)."""
+    partes = ts.split(':')
+    if len(partes) == 2:
+        return (0, int(partes[0]), int(partes[1]))
+    elif len(partes) == 3:
+        return (int(partes[0]), int(partes[1]), int(partes[2]))
+    return (0, 0, 0)
 
 
 def construir_prompt(transcripcion: str, datos_audio: List[Dict]) -> str:
@@ -209,12 +274,23 @@ def obtener_clips_ia(transcripcion: str, datos_audio: List[Dict]) -> List[Dict]:
     return clips
 
 
-def timestamp_a_segundos(timestamp: str) -> int:
-    """Convierte HH:MM:SS a segundos."""
-    partes = list(map(int, timestamp.split(':')))
-    while len(partes) < 3:
-        partes.insert(0, 0)
-    return partes[0] * 3600 + partes[1] * 60 + partes[2]
+def timestamp_a_segundos(timestamp: str) -> float:
+    """Convierte timestamp a segundos (maneja HH:MM:SS, MM:SS, o segundos)."""
+    timestamp = str(timestamp).strip()
+    
+    try:
+        if ':' in timestamp:
+            partes = timestamp.split(':')
+            if len(partes) == 2:
+                return int(partes[0]) * 60 + float(partes[1])
+            elif len(partes) == 3:
+                return int(partes[0]) * 3600 + int(partes[1]) * 60 + float(partes[2])
+        else:
+            return float(timestamp)
+    except ValueError:
+        return 0.0
+    
+    return 0.0
 
 
 def reparar_json(texto: str) -> str:
@@ -346,18 +422,38 @@ def crear_carpeta_salida(nombre: str = "clips") -> str:
 
 
 def cortar_clip(video_entrada: str, inicio: str, fin: str, salida: str) -> bool:
-    """Corta un clip usando FFmpeg (reencodificado para evitar freeze)."""
+    """Corta un clip usando FFmpeg."""
+    inicio_seg = timestamp_a_segundos(inicio)
+    fin_seg = timestamp_a_segundos(fin)
+    duracion = int(fin_seg - inicio_seg)
+    
+    if duracion <= 0:
+        print(f"      Duración inválida: {duracion}s (inicio={inicio}, fin={fin})")
+        return False
+    
+    print(f"      Corte: {inicio} -> {fin} (duración: {duracion}s)")
+    
     try:
         comando = [
-            "ffmpeg", "-y", "-ss", inicio, "-i", video_entrada,
-            "-to", fin,
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-            "-c:a", "aac", "-b:a", "128k",
+            "ffmpeg", "-y",
+            "-ss", str(inicio),
+            "-i", video_entrada,
+            "-t", str(duracion),
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+            "-c:a", "aac", "-b:a", "192k",
             "-avoid_negative_ts", "make_zero",
+            "-movflags", "+faststart",
+            "-progress", "pipe:1",
             salida
         ]
-        subprocess.run(comando, capture_output=True, check=True)
+        result = subprocess.run(comando, capture_output=True, timeout=120)
+        if result.returncode != 0:
+            print(f"      FFmpeg error: {result.stderr.decode()[:200]}")
+            return False
         return True
+    except subprocess.TimeoutExpired:
+        print(f"      Timeout al cortar clip")
+        return False
     except subprocess.CalledProcessError as e:
         print(f"      Error al cortar: {e.stderr.decode() if e.stderr else e}")
         return False
@@ -372,16 +468,22 @@ def procesar_clips(video_entrada: str, clips: List[Dict], carpeta: str) -> List[
     
     for i, clip in enumerate(clips, 1):
         nombre = os.path.join(carpeta, f"clip_{i}.mp4")
-        print(f"      Generando clip {i}: {clip['inicio']} - {clip['fin']}")
+        inicio = str(clip["inicio"])
+        fin = str(clip["fin"])
+        print(f"      Clip {i}: inicio={inicio}, fin={fin}")
         
-        if cortar_clip(video_entrada, clip["inicio"], clip["fin"], nombre):
+        if cortar_clip(video_entrada, inicio, fin, nombre):
+            if os.path.exists(nombre):
+                tamano = os.path.getsize(nombre)
+                print(f"      ✓ Guardado: {nombre} ({tamano} bytes)")
+            else:
+                print(f"      ✗ Archivo no creado")
             archivos.append(nombre)
             info_clips.append({
                 "archivo": nombre,
                 "inicio": clip["inicio"],
                 "fin": clip["fin"]
             })
-            print(f"      ✓ Guardado: {nombre}")
         else:
             print(f"      ✗ Falló")
     
@@ -394,22 +496,24 @@ def procesar_clips(video_entrada: str, clips: List[Dict], carpeta: str) -> List[
 def main():
     """Función principal."""
     print("=" * 50)
-    print("  CLIP GENERATOR - FULL AUTOMATIC")
+    print("  CLIP GENERATOR")
     print("=" * 50)
     
-    if len(sys.argv) != 3:
-        print("\nUso: python main.py video.mp4 transcripcion.txt\n")
+    if len(sys.argv) < 2:
+        print("\nUso:")
+        print("  Modo automático:   python main.py video.mp4 transcripcion.txt")
+        print("  Solo mejor clip:  python main.py video.mp4 transcripcion.txt --single")
+        print("  Manual:           python main.py video.mp4 00:01:00 00:01:30")
+        print("\nEjemplos:")
+        print("  python main.py video.mp4 transcripcion.txt")
+        print("  python main.py video.mp4 transcripcion.txt --single")
+        print("=" * 50)
         sys.exit(1)
     
     video = sys.argv[1]
-    transcripcion = sys.argv[2]
     
     if not os.path.exists(video):
         print(f"\nError: Video '{video}' no encontrado\n")
-        sys.exit(1)
-    
-    if not os.path.exists(transcripcion):
-        print(f"\nError: Transcripción '{transcripcion}' no encontrada\n")
         sys.exit(1)
     
     if not verificar_ffmpeg():
@@ -418,6 +522,43 @@ def main():
     
     carpeta = crear_carpeta_salida("clips")
     print(f"\nCarpeta: {os.path.abspath(carpeta)}\n")
+    
+    if len(sys.argv) >= 4:
+        if sys.argv[3] == "--single":
+            transcripcion = sys.argv[2]
+            modo_single = True
+        else:
+            inicio = sys.argv[2]
+            fin = sys.argv[3]
+            print(f"MODO MANUAL: {inicio} -> {fin}")
+            print("=" * 50)
+            
+            nombre = os.path.join(carpeta, "clip_single.mp4")
+            if cortar_clip(video, inicio, fin, nombre):
+                if os.path.exists(nombre):
+                    tamano = os.path.getsize(nombre)
+                    info_clips = [{"archivo": nombre, "inicio": inicio, "fin": fin}]
+                    with open(os.path.join(carpeta, "clips_info.json"), "w", encoding="utf-8") as f:
+                        json.dump(info_clips, f, indent=2)
+                    print(f"\n✓ Clip guardado: {nombre} ({tamano} bytes)")
+                    print(f"  Editar con: python editor_viral.py {nombre} clips_editados")
+                else:
+                    print("\n✗ Error: archivo no creado")
+            else:
+                print("\n✗ Error al cortar clip")
+            sys.exit(0)
+    else:
+        transcripcion = sys.argv[2]
+        modo_single = False
+    
+    if not os.path.exists(transcripcion):
+        print(f"\nError: Transcripción '{transcripcion}' no encontrada\n")
+        sys.exit(1)
+    
+    print("MODO AUTOMÁTICO")
+    if modo_single:
+        print("  (Solo el mejor clip)")
+    print("=" * 50)
     
     try:
         audio_path = extraer_audio(video)
@@ -429,6 +570,7 @@ def main():
             print("      Saltando análisis de audio (audio_analyzer no instalado)")
         
         texto = leer_transcripcion(transcripcion)
+        transcripcion_formatted = formatear_transcripcion(texto)
         clips_ia = obtener_clips_ia(texto, datos_audio)
         clips_validos = validar_clips(clips_ia)
         
@@ -436,7 +578,12 @@ def main():
             print("\nNo se encontraron clips válidos")
             sys.exit(0)
         
-        archivos = procesar_clips(video, clips_validos, carpeta)
+        if modo_single:
+            print(f"\nProcesando solo el mejor clip (score: {clips_validos[0]['score']})")
+            mejor_clip = [clips_validos[0]]
+            archivos = procesar_clips(video, mejor_clip, carpeta)
+        else:
+            archivos = procesar_clips(video, clips_validos, carpeta)
         
         print("\n" + "=" * 50)
         print(f"  CLIPS GENERADOS: {len(archivos)}")

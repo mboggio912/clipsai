@@ -87,8 +87,8 @@ def quemar_subtitulos(video: str, srt: str, salida: str) -> bool:
             "ffmpeg", "-y", "-i", video,
             "-vf", filtro,
             "-c:a", "copy",
-            "-crf", "23",
-            "-preset", "fast",
+            "-preset", "ultrafast",
+            "-threads", "4",
             salida
         ]
         

@@ -208,21 +208,20 @@ def _generar_ass_viral(
  
 def _quemar_ass(video_path: str, ruta_ass: str, salida: str) -> bool:
     """Quema el archivo ASS en el video con FFmpeg."""
-    # FFmpeg necesita la ruta con barras y los dos puntos escapados en Windows
     ass_escaped = ruta_ass.replace("\\", "/")
     if ":" in ass_escaped and not ass_escaped.startswith("/"):
-        # Windows: C:/ruta → C\:/ruta
         ass_escaped = ass_escaped.replace(":", "\\:", 1)
- 
+
     cmd = [
         "ffmpeg", "-y",
         "-i", video_path,
         "-vf", f"ass='{ass_escaped}'",
         "-c:a", "copy",
-        "-preset", "fast",
+        "-preset", "ultrafast",
+        "-threads", "4",
         salida,
     ]
- 
+
     print(f"  Quemando subtítulos virales → {os.path.basename(salida)}")
     try:
         r = subprocess.run(cmd, capture_output=True, timeout=300)

@@ -1,0 +1,47 @@
+[
+  {
+    "archivo": "clips\\clip_1.mp4",
+    "inicio": "00:02:22",
+    "fin": "00:02:53"
+  },
+  {
+    "archivo": "clips\\clip_2.mp4",
+    "inicio": "00:06:04",
+    "fin": "00:06:20"
+  },
+  {
+    "archivo": "clips\\clip_3.mp4",
+    "inicio": "00:09:16",
+    "fin": "00:09:40"
+  },
+  {
+    "archivo": "clips\\clip_4.mp4",
+    "inicio": "00:11:18",
+    "fin": "00:11:55"
+  },
+  {
+    "archivo": "clips\\clip_5.mp4",
+    "inicio": "00:05:49",
+    "fin": "00:06:06"
+  },
+  {
+    "archivo": "clips\\clip_6.mp4",
+    "inicio": "00:04:51",
+    "fin": "00:05:08"
+  },
+  {
+    "archivo": "clips\\clip_7.mp4",
+    "inicio": "00:10:41",
+    "fin": "00:11:09"
+  },
+  {
+    "archivo": "clips\\clip_8.mp4",
+    "inicio": "00:02:13",
+    "fin": "00:02:30"
+  },
+  {
+    "archivo": "clips\\clip_9.mp4",
+    "inicio": "00:07:46",
+    "fin": "00:08:09"
+  }
+]
