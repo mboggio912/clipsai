@@ -183,44 +183,103 @@ def construir_prompt(transcripcion: str, datos_audio: List[Dict]) -> str:
     """Construye el prompt para la IA."""
     audio_json = json.dumps(datos_audio, indent=2, ensure_ascii=False)
     
-    return f"""Eres un asistente que devuelve EXCLUSIVAMENTE código JSON válido. NO escribas texto antes ni después del JSON.
+    return f"""Sos un experto en contenido viral para TikTok, Instagram Reels y YouTube Shorts especializado en contenido deportivo y periodístico en español rioplatense. Tu tarea es analizar una transcripción y datos de audio para identificar los momentos con mayor potencial viral. Conocés en profundidad qué engancha a la audiencia hispanohablante de fútbol/deportes en redes sociales. DEVOLVÉ ÚNICAMENTE UN ARRAY JSON VÁLIDO. Sin texto antes ni después. Sin markdown. Empezá con [ y terminá con ].
 
-REGLAS ESTRICTAS:
-- Tu respuesta DEBE empezar directamente con [
-- Tu respuesta DEBE terminar directamente con ]
-- NO escribas explicaciones, análisis ni texto adicional
-- NO escribas markdown, ni código, ni nada fuera del JSON
+CRITERIOS DE VIRALIDAD (ordenados por peso):
 
-Analiza esta transcripción y detecta los mejores clips virales.
+REVELACIÓN O EXCLUSIVA (peso 10/10)
+Información que el espectador no sabía y genera sorpresa. Datos internos, rumores confirmados, primicias. Frases como "tengo la información", "me dijeron", "la verdad es que". Ejemplo: revelar por qué realmente salió un jugador, una lesión real vs oficial.
 
-DATOS DE AUDIO:
+CONTROVERSIA O CONTRADICCIÓN (peso 9/10)
+Momentos donde se contradice la versión oficial. Críticas directas a jugadores, cuerpo técnico o dirigencia. Predicciones arriesgadas con fundamento. Frases como "no puede ser", "me parece mal", "error garrafal".
+
+DATO CONCRETO IMPACTANTE (peso 8/10)
+Números, fechas, montos específicos que sorprenden. Comparaciones que reencuadran la realidad. Ejemplo: "costó más que Julián Álvarez", "8 millones de euros".
+
+MOMENTO EMOCIONAL AUTÉNTICO (peso 7/10)
+Nostalgia, pasión, anécdota personal del conductor. Momento donde el conductor se quiebra o se emociona. Frases como "se me pone la piel de gallina", "lo atesoro".
+
+ANÁLISIS TÉCNICO SIMPLE Y CLARO (peso 6/10)
+Explicación de por qué pasó algo en cancha de manera accesible. Máximo cuando usa metáforas o ejemplos concretos. Ejemplo: explicar por qué sacaron a un jugador con causa táctica clara.
+
+PREDICCIÓN O ANTICIPACIÓN (peso 5/10)
+El conductor adelanta algo que va a pasar. Spoiler de una decisión técnica o dirigencial futura. Genera curiosidad sobre si acertó o no.
+
+SEÑALES DE AUDIO QUE AMPLIFICAN EL SCORE:
+- intensidad > 7.0 en el timestamp: +1 punto al score
+- evento "cambio_brusco" cerca del inicio del clip: +0.5 puntos
+- evento "momento_intenso" sostenido: +1 punto
+- intensidad < 4.0 (pausa dramática antes del clip): +0.5 puntos
+
+REGLAS PARA DEFINIR INICIO Y FIN DE CADA CLIP:
+
+INICIO del clip:
+- Empezar 2-3 segundos ANTES de la frase clave para dar contexto
+- Nunca cortar en medio de una oración
+- Preferir iniciar después de una pausa natural (silencio en datos de audio)
+- El primer segundo debe enganchar: pregunta, dato impactante o afirmación fuerte
+
+FIN del clip:
+- Terminar en punto final de idea, nunca a mitad de frase
+- Ideal: terminar con conclusión o frase de impacto
+- Dejar al espectador con ganas de saber más (cliffhanger) cuando sea posible
+- Máximo 60 segundos, mínimo 20 segundos
+- El punto óptimo es 30-45 segundos para TikTok/Reels
+
+EVITAR:
+- Clips que empiezan con "y", "pero", "entonces" sin contexto previo
+- Clips que terminan con "..." o frase inconclusa sin intención
+- Dos clips con el mismo tema o personaje
+- Clips de más de 55 segundos salvo que sea una revelación excepcional
+
+DATOS DE AUDIO DEL VIDEO:
 {audio_json}
 
-TRANSCRIPCIÓN:
+Instrucciones para usar los datos de audio:
+- Buscá timestamps con intensidad >= 7.5: son momentos de alta energía vocal
+- Los eventos "cambio_brusco" marcan transiciones abruptas de tema
+- Los eventos "momento_intenso" indican energía sostenida (bueno para clips)
+- Correlacioná los timestamps del audio con los timestamps de la transcripción para validar que los clips propuestos coincidan con momentos de energía alta
+
+TRANSCRIPCIÓN COMPLETA:
 {transcripcion}
 
-FORMATO JSON OBLIGATORIO (devuelve arrays con 3-10 elementos):
+FORMATO JSON DE SALIDA OBLIGATORIO:
+Devolvé entre 5 y 10 clips ordenados de MAYOR a MENOR score.
 [
-  {{
-    "inicio": "00:00:00",
-    "fin": "00:00:30",
-    "duracion": 30,
-    "score": 8,
-    "intensidad": 7,
-    "hook_score": 8,
-    "audio_score": 7,
-    "tipo": "gracioso",
-    "hook": "inicio viral",
-    "motivo": "razón del clip"
-  }}
-]
+{{
+"inicio": "HH:MM:SS",
+"fin": "HH:MM:SS",
+"duracion": 35,
+"score": 9,
+"criterio_principal": "revelacion",
+"titulo_sugerido": "La VERDAD de por qué sacaron a Bustos",
+"hook_texto": "Lo que nadie te contó",
+"primer_segundo": "frase exacta con la que arranca el clip",
+"motivo": "explicación de por qué es viral en 1 oración",
+"tipo_contenido": "exclusiva",
+"audio_score": 8
+}}
 
-INSTRUCCIONES:
-- Solo JSON válido
-- Score mínimo 6
-- Duración 15-60 segundos
+CAMPOS OBLIGATORIOS:
+- inicio/fin: timestamps exactos en HH:MM:SS
+- duracion: segundos enteros (fin - inicio)
+- score: 1-10 basado en criterios de viralidad
+- criterio_principal: uno de [revelacion, controversia, dato_impactante, emocional, analisis_tactico, prediccion]
+- titulo_sugerido: título para el clip en español rioplatense, max 60 chars, sin clickbait vacío, con el dato concreto que engancha
+- hook_texto: texto del gancho inicial (2-5 palabras), distinto para cada clip
+- primer_segundo: primeras palabras exactas de la transcripción que abre el clip
+- motivo: por qué este momento específico va a generar engagement
+- tipo_contenido: uno de [exclusiva, analisis, emocion, prediccion, controversia]
+- audio_score: 1-10 basado en los datos de audio en ese rango de tiempo
+
+REGLAS FINALES:
+- Score mínimo para incluir: 7
 - Máximo 10 clips
-- Empieza con [ y termina con ]"""
+- No repetir el mismo tema o personaje en más de 2 clips
+- El primer clip del array DEBE ser el de mayor score
+- Todos los timestamps deben existir en la transcripción proporcionada
+- Empezá con [ y terminá con ]"""
 
 
 def obtener_clips_ia(transcripcion: str, datos_audio: List[Dict]) -> List[Dict]:
@@ -368,8 +427,8 @@ def parsear_json_tolerante(texto: str) -> List[Dict]:
 def validar_clips(clips: List[Dict]) -> List[Dict]:
     """Valida y filtra los clips."""
     print("[5/6] Validando clips...")
+    
     def convertir_ts(ts):
-        """Convierte timestamp a segundos (maneja M:SS y HH:MM:SS)."""
         partes = ts.split(':')
         if len(partes) == 2:
             return int(partes[0]) * 60 + int(partes[1])
@@ -378,7 +437,6 @@ def validar_clips(clips: List[Dict]) -> List[Dict]:
         return 0
     
     def formatear_ts(segundos):
-        """Convierte segundos a HH:MM:SS."""
         h = segundos // 3600
         m = (segundos % 3600) // 60
         s = segundos % 60
@@ -391,7 +449,7 @@ def validar_clips(clips: List[Dict]) -> List[Dict]:
             continue
         
         score = clip.get("score", 7)
-        if score < 6:
+        if score < 7:
             continue
         
         inicio = str(clip["inicio"])
@@ -405,8 +463,11 @@ def validar_clips(clips: List[Dict]) -> List[Dict]:
         
         duracion = fin_seg - inicio_seg
         
-        if duracion < 15 or duracion > 60:
+        if duracion < 20 or duracion > 60:
             continue
+        
+        criterio = clip.get("criterio_principal", "otro")
+        titulo = clip.get("titulo_sugerido", "")
         
         clips_validos.append({
             "inicio": formatear_ts(inicio_seg),
@@ -414,13 +475,15 @@ def validar_clips(clips: List[Dict]) -> List[Dict]:
             "duracion": duracion,
             "score": score,
             "intensidad": clip.get("intensidad", 5),
-            "hook_score": clip.get("hook_score", 5),
             "audio_score": clip.get("audio_score", 5),
-            "tipo": clip.get("tipo", "otro"),
-            "hook": clip.get("hook", ""),
-            "motivo": clip.get("motivo", "")
+            "criterio_principal": criterio,
+            "titulo_sugerido": titulo,
+            "hook_texto": clip.get("hook_texto", ""),
+            "primer_segundo": clip.get("primer_segundo", ""),
+            "motivo": clip.get("motivo", ""),
+            "tipo_contenido": clip.get("tipo_contenido", "otro"),
         })
-        print(f"      Clip {i+1}: {formatear_ts(inicio_seg)} - {formatear_ts(fin_seg)} ({duracion}s) | {clip.get('tipo', '?')} | Score: {score}")
+        print(f"      Clip {i+1}: {formatear_ts(inicio_seg)} - {formatear_ts(fin_seg)} ({duracion}s) | {criterio} | Score: {score} | {titulo[:40]}")
     
     clips_validos.sort(key=lambda x: x["score"], reverse=True)
     clips_validos = clips_validos[:10]
@@ -497,13 +560,19 @@ def procesar_clips(video_entrada: str, clips: List[Dict], carpeta: str) -> List[
             info_clips.append({
                 "archivo": nombre,
                 "inicio": clip["inicio"],
-                "fin": clip["fin"]
+                "fin": clip["fin"],
+                "titulo_sugerido": clip.get("titulo_sugerido", ""),
+                "hook_texto": clip.get("hook_texto", ""),
+                "criterio_principal": clip.get("criterio_principal", ""),
+                "score": clip.get("score", 0),
+                "primer_segundo": clip.get("primer_segundo", ""),
+                "motivo": clip.get("motivo", ""),
             })
         else:
             print(f"      ✗ Falló")
     
     with open(os.path.join(carpeta, "clips_info.json"), "w", encoding="utf-8") as f:
-        json.dump(info_clips, f, indent=2)
+        json.dump(info_clips, f, indent=2, ensure_ascii=False)
     
     return archivos
 
@@ -595,34 +664,34 @@ def main():
         else:
             print("      Saltando análisis de audio (audio_analyzer no instalado)")
         
-        if modo_whisper:
+        if modo_whisper or not transcripcion_path:
             try:
                 from whisper_transcriber import transcribir_video
                 print("\n[3/6] Transcribiendo con faster-whisper...")
-                transcribir_video(video, "transcripcion_formatted.txt")
+                print("      (La primera vez descarga el modelo, puede tardar)")
+                resultado = transcribir_video(
+                    video,
+                    salida_transcripcion="transcripcion_formatted.txt",
+                    salida_words="whisper_words.json"
+                )
+                print(f"      ✓ {resultado['total_palabras']} palabras transcritas")
+                print(f"      ✓ whisper_words.json generado")
+                transcripcion_path_generado = "transcripcion_formatted.txt"
             except ImportError:
                 print("\nERROR: faster-whisper no instalado")
-                print("Instalar con: pip install faster-whisper")
-                print("O usar transcripción manual: python main.py video.mp4 transcripcion.txt")
+                print("Instalar: pip install faster-whisper")
+                print("O usar modo manual: python main.py video.mp4 transcripcion.txt")
                 sys.exit(1)
         else:
-            print("\n[3/6] Formateando transcripción...")
-            if transcripcion_path:
-                transcripcion_formatted = formatear_transcripcion(leer_transcripcion_completa(transcripcion_path))
-            else:
-                transcripcion_formatted = "transcripcion_formatted.txt"
-                if not os.path.exists(transcripcion_formatted):
-                    print("ERROR: No hay transcripción disponible")
-                    print("Usar: python main.py video.mp4 transcripcion.txt")
-                    sys.exit(1)
+            print("\n[3/6] Usando transcripción manual...")
+            transcripcion_formatted = formatear_transcripcion(leer_transcripcion_completa(transcripcion_path))
+            transcripcion_path_generado = transcripcion_formatted
+            print("      AVISO: Sin whisper_words.json - subtítulos en modo fallback")
+            print("      Para subtítulos perfectos: python main.py video.mp4")
         
         texto_para_ia = ""
-        if transcripcion_path and os.path.exists(transcripcion_path):
-            texto_para_ia = leer_transcripcion_para_ia(transcripcion_path)
-        elif os.path.exists("transcripcion_formatted.txt"):
-            with open("transcripcion_formatted.txt", "r", encoding="utf-8") as f:
-                contenido = f.read()
-                texto_para_ia = contenido[:6000] if len(contenido) > 6000 else contenido
+        if transcripcion_path_generado and os.path.exists(transcripcion_path_generado):
+            texto_para_ia = leer_transcripcion_para_ia(transcripcion_path_generado)
         
         if texto_para_ia:
             clips_ia = obtener_clips_ia(texto_para_ia, datos_audio)

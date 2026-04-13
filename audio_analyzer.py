@@ -226,6 +226,66 @@ def guardar_json(eventos: List[Dict], ruta: str = "audio.json") -> None:
     print(f"  Guardado: {ruta}")
 
 
+def detectar_momentos_virales_clustering(
+    eventos: List[Dict], 
+    n_clusters: int = 10
+) -> List[Dict]:
+    """
+    Usa KMeans clustering para identificar los momentos más representativos
+    y diversos del video, evitando clusters de momentos similares repetidos.
+    """
+    try:
+        from sklearn.cluster import KMeans
+        from sklearn.preprocessing import StandardScaler
+        import numpy as np
+        
+        features = []
+        eventos_idx = []
+        
+        for i, evento in enumerate(eventos):
+            ts = timestamp_a_segundos(evento.get('timestamp', '00:00:00'))
+            intensidad = evento.get('intensidad', 5.0)
+            
+            tipo_score = {
+                'grito': 4,
+                'momento_intenso': 3,
+                'cambio_brusco': 2,
+                'cambio_escena': 1,
+                'silencio': 0
+            }.get(evento.get('evento', 'silencio'), 0)
+            
+            features.append([ts, intensidad, tipo_score])
+            eventos_idx.append(i)
+        
+        if len(features) < n_clusters:
+            return sorted(eventos, key=lambda x: x.get('intensidad', 0), reverse=True)
+        
+        X = np.array(features)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        
+        n_clusters_real = min(n_clusters, len(features))
+        kmeans = KMeans(n_clusters=n_clusters_real, random_state=42, n_init=10)
+        labels = kmeans.fit_predict(X_scaled)
+        
+        mejores_por_cluster = []
+        for cluster_id in range(n_clusters_real):
+            indices_cluster = [i for i, l in enumerate(labels) if l == cluster_id]
+            if not indices_cluster:
+                continue
+            mejor_idx = max(indices_cluster, key=lambda i: eventos[i].get('intensidad', 0))
+            mejores_por_cluster.append(eventos[mejor_idx])
+        
+        mejores_por_cluster.sort(key=lambda x: timestamp_a_segundos(x.get('timestamp', '00:00:00')))
+        
+        print(f"  Clustering: {n_clusters_real} clusters generados")
+        return mejores_por_cluster
+        
+    except Exception as e:
+        print(f"  Clustering falló: {e}")
+        return sorted(eventos, key=lambda x: x.get('intensidad', 0), reverse=True)
+
+
 def analizar_audio(audio_path: str = "audio.mp3", salida_path: str = "audio.json") -> List[Dict]:
     """
     Función principal: analiza un archivo de audio y genera audio.json.
@@ -275,6 +335,14 @@ def analizar_audio(audio_path: str = "audio.mp3", salida_path: str = "audio.json
         
         eventos_dict = eventos_a_dict(eventos)
         guardar_json(eventos_dict, salida_path)
+        
+        print("\nAgrupando momentos con clustering...")
+        try:
+            momentos_virales = detectar_momentos_virales_clustering(eventos_dict, n_clusters=10)
+            guardar_json(momentos_virales, "momentos_virales.json")
+            print(f"  Momentos virales seleccionados: {len(momentos_virales)}")
+        except Exception as e:
+            print(f"  Clustering falló: {e}")
         
         print(f"\n✓ Análisis completado")
         print(f"  Total eventos: {len(eventos_dict)}")

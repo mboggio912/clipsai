@@ -1,0 +1,52 @@
+[
+  {
+    "timestamp": "00:00:00",
+    "evento": "silencio",
+    "intensidad": 10.0
+  },
+  {
+    "timestamp": "00:00:02",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
+  },
+  {
+    "timestamp": "00:00:12",
+    "evento": "silencio",
+    "intensidad": 6.0
+  },
+  {
+    "timestamp": "00:03:15",
+    "evento": "silencio",
+    "intensidad": 4.5
+  },
+  {
+    "timestamp": "00:04:06",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
+  },
+  {
+    "timestamp": "00:04:45",
+    "evento": "silencio",
+    "intensidad": 6.9
+  },
+  {
+    "timestamp": "00:07:37",
+    "evento": "silencio",
+    "intensidad": 5.6
+  },
+  {
+    "timestamp": "00:08:23",
+    "evento": "silencio",
+    "intensidad": 3.9
+  },
+  {
+    "timestamp": "00:08:49",
+    "evento": "silencio",
+    "intensidad": 6.8
+  },
+  {
+    "timestamp": "00:11:18",
+    "evento": "silencio",
+    "intensidad": 10.0
+  }
+]

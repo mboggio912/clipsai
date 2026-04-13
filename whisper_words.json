@@ -1,0 +1,499 @@
+[
+  {
+    "word": "Como",
+    "start": 0.0,
+    "end": 9.55,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "les",
+    "start": 9.55,
+    "end": 19.101,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "digo,",
+    "start": 19.101,
+    "end": 28.651,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "aquí",
+    "start": 28.651,
+    "end": 38.201,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "estamos.",
+    "start": 38.201,
+    "end": 47.751,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "Arrancando",
+    "start": 47.751,
+    "end": 57.302,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "un",
+    "start": 57.302,
+    "end": 66.852,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "micro",
+    "start": 66.852,
+    "end": 76.402,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "informativo",
+    "start": 76.402,
+    "end": 85.952,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "con",
+    "start": 85.952,
+    "end": 95.503,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "novedades,",
+    "start": 95.503,
+    "end": 105.053,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "recién",
+    "start": 105.053,
+    "end": 114.603,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "llegó",
+    "start": 114.603,
+    "end": 124.154,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "de",
+    "start": 124.154,
+    "end": 133.704,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "Bolivia,",
+    "start": 133.704,
+    "end": 143.254,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "igualó",
+    "start": 143.254,
+    "end": 152.804,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "River",
+    "start": 152.804,
+    "end": 162.355,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "1",
+    "start": 162.355,
+    "end": 171.905,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "a",
+    "start": 171.905,
+    "end": 181.455,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "1",
+    "start": 181.455,
+    "end": 191.005,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "contra",
+    "start": 191.005,
+    "end": 200.556,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "Blumin,",
+    "start": 200.556,
+    "end": 210.106,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "ya",
+    "start": 210.106,
+    "end": 219.656,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "es",
+    "start": 219.656,
+    "end": 229.206,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "historia",
+    "start": 229.206,
+    "end": 238.757,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "juzgada.",
+    "start": 238.757,
+    "end": 248.307,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "Ya",
+    "start": 248.307,
+    "end": 257.857,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "hablamos",
+    "start": 257.857,
+    "end": 267.408,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "en",
+    "start": 267.408,
+    "end": 276.958,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "la",
+    "start": 276.958,
+    "end": 286.508,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "reacción",
+    "start": 286.508,
+    "end": 296.058,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "post-partido,",
+    "start": 296.058,
+    "end": 305.609,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "ya",
+    "start": 305.609,
+    "end": 315.159,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "hablé",
+    "start": 315.159,
+    "end": 324.709,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "de",
+    "start": 324.709,
+    "end": 334.259,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "ese",
+    "start": 334.259,
+    "end": 343.81,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "encuentro,",
+    "start": 343.81,
+    "end": 353.36,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "los",
+    "start": 353.36,
+    "end": 362.91,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "leí",
+    "start": 362.91,
+    "end": 372.461,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "a",
+    "start": 372.461,
+    "end": 382.011,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "cada",
+    "start": 382.011,
+    "end": 391.561,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "uno",
+    "start": 391.561,
+    "end": 401.111,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "de",
+    "start": 401.111,
+    "end": 410.662,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "ustedes",
+    "start": 410.662,
+    "end": 420.212,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "acerca",
+    "start": 420.212,
+    "end": 429.762,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "de",
+    "start": 429.762,
+    "end": 439.312,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "si",
+    "start": 439.312,
+    "end": 448.863,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "fue",
+    "start": 448.863,
+    "end": 458.413,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "un",
+    "start": 458.413,
+    "end": 467.963,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "puntazo,",
+    "start": 467.963,
+    "end": 477.513,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "fue",
+    "start": 477.513,
+    "end": 487.064,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "un",
+    "start": 487.064,
+    "end": 496.614,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "punto,",
+    "start": 496.614,
+    "end": 506.164,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "fue",
+    "start": 506.164,
+    "end": 515.715,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "un",
+    "start": 515.715,
+    "end": 525.265,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "punto",
+    "start": 525.265,
+    "end": 534.815,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "inteligente,",
+    "start": 534.815,
+    "end": 544.365,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "o",
+    "start": 544.365,
+    "end": 553.916,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "fue",
+    "start": 553.916,
+    "end": 563.466,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "un",
+    "start": 563.466,
+    "end": 573.016,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "papelón,",
+    "start": 573.016,
+    "end": 582.566,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "cada",
+    "start": 582.566,
+    "end": 592.117,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "uno",
+    "start": 592.117,
+    "end": 601.667,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "tiene",
+    "start": 601.667,
+    "end": 611.217,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "su",
+    "start": 611.217,
+    "end": 620.768,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "postura",
+    "start": 620.768,
+    "end": 630.318,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "y",
+    "start": 630.318,
+    "end": 639.868,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "por",
+    "start": 639.868,
+    "end": 649.418,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "supuesto",
+    "start": 649.418,
+    "end": 658.969,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "que",
+    "start": 658.969,
+    "end": 668.519,
+    "probability": 0.95,
+    "segment_id": 0
+  },
+  {
+    "word": "valoro",
+    "start": 668.519,
+    "end": 678.069,
+    "probability": 0.95,
+    "segment_id": 0
+  }
+]

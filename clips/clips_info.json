@@ -1,47 +1,57 @@
 [
   {
     "archivo": "clips\\clip_1.mp4",
-    "inicio": "00:02:22",
-    "fin": "00:02:53"
+    "inicio": "00:07:00",
+    "fin": "00:07:57",
+    "titulo_sugerido": "Fue un puntazo o un papelón",
+    "hook_texto": "La verdad es",
+    "criterio_principal": "controversia",
+    "score": 9,
+    "primer_segundo": "acerca de si fue un puntazo",
+    "motivo": "Genera debate y controversia entre los hinchas"
   },
   {
     "archivo": "clips\\clip_2.mp4",
-    "inicio": "00:06:04",
-    "fin": "00:06:20"
+    "inicio": "00:02:42",
+    "fin": "00:03:39",
+    "titulo_sugerido": "River igualó 1 a 1",
+    "hook_texto": "La noticia es",
+    "criterio_principal": "dato_impactante",
+    "score": 8,
+    "primer_segundo": "1 a 1 contra Blumin",
+    "motivo": "Es un dato concreto e impactante"
   },
   {
     "archivo": "clips\\clip_3.mp4",
-    "inicio": "00:09:16",
-    "fin": "00:09:40"
+    "inicio": "00:09:52",
+    "fin": "00:10:49",
+    "titulo_sugerido": "Cada uno tiene su postura",
+    "hook_texto": "La verdad es que",
+    "criterio_principal": "emocional",
+    "score": 8,
+    "primer_segundo": "cada uno tiene su postura y por",
+    "motivo": "Es un momento emotivo y de reflexión"
   },
   {
     "archivo": "clips\\clip_4.mp4",
-    "inicio": "00:11:18",
-    "fin": "00:11:55"
+    "inicio": "00:05:05",
+    "fin": "00:06:02",
+    "titulo_sugerido": "Análisis post-partido",
+    "hook_texto": "Ya hablamos de",
+    "criterio_principal": "analisis_tactico",
+    "score": 7,
+    "primer_segundo": "ya hablé de ese encuentro",
+    "motivo": "Es un análisis táctico interesante"
   },
   {
     "archivo": "clips\\clip_5.mp4",
-    "inicio": "00:05:49",
-    "fin": "00:06:06"
-  },
-  {
-    "archivo": "clips\\clip_6.mp4",
-    "inicio": "00:04:51",
-    "fin": "00:05:08"
-  },
-  {
-    "archivo": "clips\\clip_7.mp4",
-    "inicio": "00:10:41",
-    "fin": "00:11:09"
-  },
-  {
-    "archivo": "clips\\clip_8.mp4",
-    "inicio": "00:02:13",
-    "fin": "00:02:30"
-  },
-  {
-    "archivo": "clips\\clip_9.mp4",
-    "inicio": "00:07:46",
-    "fin": "00:08:09"
+    "inicio": "00:00:47",
+    "fin": "00:01:45",
+    "titulo_sugerido": "Novedades en el micro",
+    "hook_texto": "Arrancando un micro",
+    "criterio_principal": "prediccion",
+    "score": 7,
+    "primer_segundo": "Arrancando un micro informativo con novedades",
+    "motivo": "Es un momento de predicción y novedades"
   }
 ]

@@ -6,13 +6,13 @@
   },
   {
     "timestamp": "00:00:02",
-    "evento": "silencio",
-    "intensidad": 4.8
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
-    "timestamp": "00:00:05",
-    "evento": "silencio",
-    "intensidad": 4.4
+    "timestamp": "00:00:04",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:00:07",
@@ -60,9 +60,9 @@
     "intensidad": 6.9
   },
   {
-    "timestamp": "00:00:32",
-    "evento": "silencio",
-    "intensidad": 4.9
+    "timestamp": "00:00:33",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:00:36",
@@ -70,14 +70,9 @@
     "intensidad": 5.7
   },
   {
-    "timestamp": "00:00:38",
-    "evento": "silencio",
-    "intensidad": 3.3
-  },
-  {
-    "timestamp": "00:00:40",
-    "evento": "silencio",
-    "intensidad": 3.8
+    "timestamp": "00:00:39",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:00:43",
@@ -110,14 +105,9 @@
     "intensidad": 5.8
   },
   {
-    "timestamp": "00:00:58",
-    "evento": "silencio",
-    "intensidad": 4.3
-  },
-  {
-    "timestamp": "00:01:00",
-    "evento": "silencio",
-    "intensidad": 3.0
+    "timestamp": "00:00:59",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:01:03",
@@ -136,8 +126,8 @@
   },
   {
     "timestamp": "00:01:11",
-    "evento": "silencio",
-    "intensidad": 3.0
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:01:14",
@@ -161,8 +151,8 @@
   },
   {
     "timestamp": "00:01:22",
-    "evento": "silencio",
-    "intensidad": 3.7
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:01:25",
@@ -171,8 +161,8 @@
   },
   {
     "timestamp": "00:01:27",
-    "evento": "cambio_brusco",
-    "intensidad": 3.0
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:01:30",
@@ -220,11 +210,6 @@
     "intensidad": 5.4
   },
   {
-    "timestamp": "00:01:52",
-    "evento": "silencio",
-    "intensidad": 3.0
-  },
-  {
     "timestamp": "00:01:55",
     "evento": "silencio",
     "intensidad": 7.5
@@ -266,8 +251,8 @@
   },
   {
     "timestamp": "00:02:18",
-    "evento": "silencio",
-    "intensidad": 4.4
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:02:22",
@@ -305,9 +290,9 @@
     "intensidad": 3.0
   },
   {
-    "timestamp": "00:02:40",
-    "evento": "silencio",
-    "intensidad": 3.7
+    "timestamp": "00:02:41",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:02:44",
@@ -465,9 +450,9 @@
     "intensidad": 3.3
   },
   {
-    "timestamp": "00:04:07",
-    "evento": "silencio",
-    "intensidad": 4.6
+    "timestamp": "00:04:06",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:04:11",
@@ -526,8 +511,8 @@
   },
   {
     "timestamp": "00:04:42",
-    "evento": "silencio",
-    "intensidad": 3.7
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:04:45",
@@ -536,8 +521,8 @@
   },
   {
     "timestamp": "00:04:47",
-    "evento": "cambio_brusco",
-    "intensidad": 3.0
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:04:51",
@@ -565,6 +550,11 @@
     "intensidad": 4.4
   },
   {
+    "timestamp": "00:05:03",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
+  },
+  {
     "timestamp": "00:05:05",
     "evento": "silencio",
     "intensidad": 5.9
@@ -580,14 +570,9 @@
     "intensidad": 3.9
   },
   {
-    "timestamp": "00:05:13",
-    "evento": "silencio",
-    "intensidad": 4.3
-  },
-  {
-    "timestamp": "00:05:15",
-    "evento": "silencio",
-    "intensidad": 3.0
+    "timestamp": "00:05:14",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:05:17",
@@ -666,13 +651,13 @@
   },
   {
     "timestamp": "00:06:00",
-    "evento": "silencio",
-    "intensidad": 3.0
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:06:02",
-    "evento": "silencio",
-    "intensidad": 4.1
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:06:04",
@@ -700,9 +685,9 @@
     "intensidad": 5.6
   },
   {
-    "timestamp": "00:06:16",
-    "evento": "silencio",
-    "intensidad": 4.9
+    "timestamp": "00:06:15",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:06:21",
@@ -716,18 +701,13 @@
   },
   {
     "timestamp": "00:06:25",
-    "evento": "silencio",
-    "intensidad": 4.7
-  },
-  {
-    "timestamp": "00:06:28",
-    "evento": "silencio",
+    "evento": "cambio_escena",
     "intensidad": 5.0
   },
   {
-    "timestamp": "00:06:30",
-    "evento": "silencio",
-    "intensidad": 4.9
+    "timestamp": "00:06:29",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:06:33",
@@ -740,9 +720,9 @@
     "intensidad": 5.1
   },
   {
-    "timestamp": "00:06:39",
-    "evento": "silencio",
-    "intensidad": 4.4
+    "timestamp": "00:06:40",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:06:42",
@@ -785,6 +765,11 @@
     "intensidad": 5.7
   },
   {
+    "timestamp": "00:07:02",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
+  },
+  {
     "timestamp": "00:07:05",
     "evento": "silencio",
     "intensidad": 5.5
@@ -811,8 +796,8 @@
   },
   {
     "timestamp": "00:07:19",
-    "evento": "silencio",
-    "intensidad": 3.0
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:07:21",
@@ -851,8 +836,8 @@
   },
   {
     "timestamp": "00:07:41",
-    "evento": "silencio",
-    "intensidad": 4.7
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:07:44",
@@ -883,6 +868,11 @@
     "timestamp": "00:07:59",
     "evento": "silencio",
     "intensidad": 5.6
+  },
+  {
+    "timestamp": "00:08:01",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:08:04",
@@ -980,6 +970,11 @@
     "intensidad": 6.3
   },
   {
+    "timestamp": "00:08:55",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
+  },
+  {
     "timestamp": "00:08:57",
     "evento": "silencio",
     "intensidad": 4.1
@@ -1028,6 +1023,11 @@
     "timestamp": "00:09:27",
     "evento": "silencio",
     "intensidad": 4.8
+  },
+  {
+    "timestamp": "00:09:29",
+    "evento": "cambio_escena",
+    "intensidad": 5.0
   },
   {
     "timestamp": "00:09:31",
@@ -1110,11 +1110,6 @@
     "intensidad": 5.2
   },
   {
-    "timestamp": "00:10:14",
-    "evento": "silencio",
-    "intensidad": 4.0
-  },
-  {
     "timestamp": "00:10:17",
     "evento": "silencio",
     "intensidad": 5.9
@@ -1145,19 +1140,9 @@
     "intensidad": 5.0
   },
   {
-    "timestamp": "00:10:35",
-    "evento": "silencio",
-    "intensidad": 4.1
-  },
-  {
     "timestamp": "00:10:37",
     "evento": "silencio",
     "intensidad": 5.8
-  },
-  {
-    "timestamp": "00:10:39",
-    "evento": "silencio",
-    "intensidad": 4.0
   },
   {
     "timestamp": "00:10:41",
@@ -1188,11 +1173,6 @@
     "timestamp": "00:10:56",
     "evento": "silencio",
     "intensidad": 6.0
-  },
-  {
-    "timestamp": "00:10:58",
-    "evento": "silencio",
-    "intensidad": 4.5
   },
   {
     "timestamp": "00:11:00",

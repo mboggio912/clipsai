@@ -127,11 +127,43 @@ class VideoEditor:
         
         return x_offset, y_offset, nuevo_ancho, self.alto_final
     
-    def detectar_momentos_clave(self, video_path: str) -> List[Dict]:
-        """Detecta momentos clave basado en análisis de audio."""
+    def detectar_momentos_clave(self, video_path: str, inicio_clip: float = 0.0, 
+                               duracion_clip: float = None) -> List[Dict]:
+        """Detecta momentos clave leyendo desde audio.json o analizando directamente."""
         log.info("[3/8] Detectando momentos clave...")
         
         momentos = []
+        audio_json_path = "audio.json"
+        
+        if os.path.exists(audio_json_path):
+            try:
+                import json as json_lib
+                with open(audio_json_path, 'r', encoding='utf-8') as f:
+                    eventos = json_lib.load(f)
+                
+                fin_clip = (inicio_clip + duracion_clip) if duracion_clip else float('inf')
+                
+                for evento in eventos:
+                    ts_str = evento.get('timestamp', '00:00:00')
+                    ts_seg = self._ts_a_segundos(ts_str)
+                    t_rel = ts_seg - inicio_clip
+                    
+                    if 0 <= t_rel <= (duracion_clip or float('inf')):
+                        momentos.append({
+                            "timestamp": t_rel,
+                            "timestamp_abs": ts_seg,
+                            "tipo": evento.get('evento', 'silencio'),
+                            "intensidad": evento.get('intensidad', 5.0)
+                        })
+                
+                log.info(f"      audio.json: {len(eventos)} eventos totales")
+                log.info(f"      Eventos en rango del clip: {len(momentos)}")
+                return momentos[:20]
+                
+            except Exception as e:
+                log.warning(f"      Error leyendo audio.json: {e}")
+        
+        log.warning("      audio.json no encontrado - analizando audio del clip directamente")
         
         try:
             audio_path = "temp_audio.wav"
@@ -169,7 +201,7 @@ class VideoEditor:
                 os.remove(audio_path)
                 
             except ImportError:
-                log.warning("      librosa no disponible, usando detección básica")
+                log.warning("      librosa no disponible")
                 momentos = [{"timestamp": 0, "tipo": "inicio", "intensidad": 8}]
                 
         except Exception as e:
@@ -178,6 +210,13 @@ class VideoEditor:
         
         log.info(f"      Momentos detectados: {len(momentos)}")
         return momentos[:20]
+    
+    def _ts_a_segundos(self, ts: str) -> float:
+        """Convierte HH:MM:SS a segundos."""
+        partes = ts.split(':')
+        while len(partes) < 3:
+            partes.insert(0, '0')
+        return int(partes[0]) * 3600 + int(partes[1]) * 60 + float(partes[2])
     
     def crear_hook_inicial(self, momento_clave: Dict) -> str:
         """Crea texto de hook basado en el momento."""
@@ -286,11 +325,6 @@ class VideoEditor:
             return False
         except Exception as e:
             log.error(f"      Error: {e}")
-            return False
-            return True
-            
-        except subprocess.CalledProcessError as e:
-            log.error(f"      Error: {e.stderr.decode() if e.stderr else e}")
             return False
     
     def agregar_subtitulos_virales_ffmpeg(self, video_path: str, subtitulos: List[Dict], salida: str) -> bool:
@@ -420,11 +454,38 @@ class VideoEditor:
         temp_subs = self.salida_dir / f"{nombre}_subs.mp4"
         salida_final = self.salida_dir / f"{nombre}_viral.mp4"
         
+        info_path = self.clips_dir / "clips_info.json"
+        inicio_clip = 0.0
+        duracion_clip = 60.0
+        hook_texto = ""
+        titulo = ""
+        criterio = ""
+        
+        if info_path.exists():
+            import json as json_lib
+            with open(info_path, 'r') as f:
+                info_clips = json_lib.load(f)
+            if index < len(info_clips):
+                info = info_clips[index]
+                inicio_clip = self._ts_a_segundos(info['inicio'])
+                fin_clip = self._ts_a_segundos(info['fin'])
+                duracion_clip = fin_clip - inicio_clip
+                hook_texto = info.get('hook_texto', '')
+                titulo = info.get('titulo_sugerido', '')
+                criterio = info.get('criterio_principal', '')
+                
+                if hook_texto:
+                    log.info(f"      Hook: {hook_texto}")
+                if titulo:
+                    log.info(f"      Título: {titulo}")
+                if criterio:
+                    log.info(f"      Tipo: {criterio}")
+        
         try:
             if not self.aplicar_formato_vertical(str(clip_path), str(temp_vertical)):
                 return None
             
-            momentos = self.detectar_momentos_clave(str(clip_path))
+            momentos = self.detectar_momentos_clave(str(clip_path), inicio_clip, duracion_clip)
             
             trans_file = None
             if transcripcion_path and os.path.exists(transcripcion_path):
@@ -434,49 +495,24 @@ class VideoEditor:
             elif os.path.exists(str(self.clips_dir / "transcripcion_formatted.txt")):
                 trans_file = str(self.clips_dir / "transcripcion_formatted.txt")
             
-            info_path = self.clips_dir / "clips_info.json"
-            inicio_clip = 0.0
-            duracion_clip = 60.0
-            
-            if info_path.exists():
-                import json as json_lib
-                with open(info_path, 'r') as f:
-                    info_clips = json_lib.load(f)
-                if index < len(info_clips):
-                    from sub_reales import ts_a_segundos
-                    info = info_clips[index]
-                    inicio_clip = ts_a_segundos(info['inicio'])
-                    fin_clip = ts_a_segundos(info['fin'])
-                    duracion_clip = fin_clip - inicio_clip
-            
-            if trans_file:
-                from sub_reales import leer_transcripcion, crear_video_con_subtitulos
-                
-                log.info(f"[5/8] Subtítulos: usando {os.path.basename(trans_file)}")
-                log.info(f"      Clip inicia en: {segundos_a_ts(inicio_clip)} ({inicio_clip:.0f}s)")
-                log.info(f"      Duración del clip: {duracion_clip:.0f}s")
-                log.info(f"      Buscando segmentos entre {inicio_clip:.0f}s y {inicio_clip + duracion_clip:.0f}s...")
-                
-                segmentos = leer_transcripcion(trans_file)
-                
-                if segmentos:
-                    ok = crear_video_con_subtitulos(
-                        str(temp_vertical), 
-                        segmentos, 
-                        str(temp_subs), 
-                        inicio_clip,
-                        duracion_clip
-                    )
-                    if ok:
-                        log.info(f"      Subtítulos sincronizados aplicados")
-                    else:
-                        log.warning("      Falló subtítulos - pasando sin subtítulos")
-                        temp_subs = temp_vertical
-                else:
-                    log.warning("      Sin segmentos - pasando sin subtítulos")
-                    temp_subs = temp_vertical
+            log.info(f"[5/8] Generando subtítulos...")
+            log.info(f"      Clip: {segundos_a_ts(inicio_clip)} → duración {duracion_clip:.0f}s")
+
+            from subtitulos_pro import crear_subtitulos_clip
+
+            ok = crear_subtitulos_clip(
+                video_entrada=str(temp_vertical),
+                video_salida=str(temp_subs),
+                inicio_clip=inicio_clip,
+                duracion_clip=duracion_clip,
+                words_json="whisper_words.json",
+                transcripcion_fallback="transcripcion_formatted.txt"
+            )
+
+            if ok:
+                log.info(f"      Subtítulos aplicados")
             else:
-                log.warning("[5/8] Subtítulos: OMITIDOS (no se encontró transcripción)")
+                log.warning(f"      Sin subtítulos - pasando video limpio")
                 temp_subs = temp_vertical
             
             self.mejorar_audio(str(temp_subs), str(salida_final))
