@@ -88,6 +88,22 @@ def _subtitulos_modo_whisper(
     with open(words_json, 'r', encoding='utf-8') as f:
         words = json.load(f)
 
+    if not words:
+        print("  AVISO: whisper_words.json vacío")
+        return False
+
+    duracion_promedio = sum(
+        w['end'] - w['start'] for w in words[:20]
+    ) / min(20, len(words))
+
+    if duracion_promedio > 2.0:
+        print(f"  AVISO: whisper_words.json tiene timestamps inválidos")
+        print(f"  (promedio {duracion_promedio:.2f}s/palabra - parecen estimados)")
+        print(f"  Usando modo fallback...")
+        return False
+
+    print(f"  Timestamps validados: {duracion_promedio:.3f}s promedio/palabra")
+
     fin_clip = inicio_clip + (duracion_clip or float('inf'))
 
     words_clip: List[Dict] = []
@@ -101,7 +117,7 @@ def _subtitulos_modo_whisper(
             })
 
     print(f"  Palabras totales en JSON: {len(words)}")
-    print(f"  Palabras en rango del clip: {len(words_clip)}")
+    print(f"  Palabras en rango {inicio_clip:.0f}s-{fin_clip:.0f}s: {len(words_clip)}")
 
     if not words_clip:
         print("  AVISO: Sin palabras en el rango del clip")

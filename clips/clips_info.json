@@ -1,57 +1,68 @@
 [
   {
     "archivo": "clips\\clip_1.mp4",
-    "inicio": "00:07:00",
-    "fin": "00:07:57",
-    "titulo_sugerido": "Fue un puntazo o un papelón",
-    "hook_texto": "La verdad es",
-    "criterio_principal": "controversia",
+    "inicio": "23:34",
+    "fin": "23:59",
+    "titulo_sugerido": "La verdad sobre la lesión de Driusi",
+    "hook_texto": "La lesión de Driusi",
+    "criterio_principal": "revelacion",
     "score": 9,
-    "primer_segundo": "acerca de si fue un puntazo",
-    "motivo": "Genera debate y controversia entre los hinchas"
+    "primer_segundo": "Torcedura de tobillo, no tiene nada para preocuparse",
+    "motivo": "Revela la causa real de la lesión de Driusi"
   },
   {
     "archivo": "clips\\clip_2.mp4",
-    "inicio": "00:02:42",
-    "fin": "00:03:39",
-    "titulo_sugerido": "River igualó 1 a 1",
-    "hook_texto": "La noticia es",
-    "criterio_principal": "dato_impactante",
+    "inicio": "40:21",
+    "fin": "40:46",
+    "titulo_sugerido": "¿Por qué no juega Kendry Páez?",
+    "hook_texto": "Kendry Páez",
+    "criterio_principal": "contovertia",
     "score": 8,
-    "primer_segundo": "1 a 1 contra Blumin",
-    "motivo": "Es un dato concreto e impactante"
+    "primer_segundo": "Kendry Páez no tuvo actividad",
+    "motivo": "Cuestiona la decisión del técnico sobre Kendry Páez"
   },
   {
     "archivo": "clips\\clip_3.mp4",
-    "inicio": "00:09:52",
-    "fin": "00:10:49",
-    "titulo_sugerido": "Cada uno tiene su postura",
-    "hook_texto": "La verdad es que",
-    "criterio_principal": "emocional",
+    "inicio": "50:23",
+    "fin": "50:48",
+    "titulo_sugerido": "Juan Fernando Quintero vuelve",
+    "hook_texto": "Quintero vuelve",
+    "criterio_principal": "dato_impactante",
     "score": 8,
-    "primer_segundo": "cada uno tiene su postura y por",
-    "motivo": "Es un momento emotivo y de reflexión"
+    "primer_segundo": "Yo no descartaría que Juan Fernando Quintero",
+    "motivo": "Anuncia el posible regreso de Juan Fernando Quintero"
   },
   {
     "archivo": "clips\\clip_4.mp4",
-    "inicio": "00:05:05",
-    "fin": "00:06:02",
-    "titulo_sugerido": "Análisis post-partido",
-    "hook_texto": "Ya hablamos de",
-    "criterio_principal": "analisis_tactico",
+    "inicio": "11:09",
+    "fin": "11:34",
+    "titulo_sugerido": "La emoción de River",
+    "hook_texto": "La emoción",
+    "criterio_principal": "emocional",
     "score": 7,
-    "primer_segundo": "ya hablé de ese encuentro",
-    "motivo": "Es un análisis táctico interesante"
+    "primer_segundo": "Y hablando del futuro de River",
+    "motivo": "Expresa la emoción y la pasión de los hinchas de River"
   },
   {
     "archivo": "clips\\clip_5.mp4",
-    "inicio": "00:00:47",
-    "fin": "00:01:45",
-    "titulo_sugerido": "Novedades en el micro",
-    "hook_texto": "Arrancando un micro",
+    "inicio": "31:41",
+    "fin": "32:06",
+    "titulo_sugerido": "El análisis de Chacho Coudet",
+    "hook_texto": "Análisis de Chacho",
+    "criterio_principal": "analisis_tactico",
+    "score": 7,
+    "primer_segundo": "El Chacho mencionó que de todos los cambios",
+    "motivo": "Explica las decisiones tácticas del técnico"
+  },
+  {
+    "archivo": "clips\\clip_6.mp4",
+    "inicio": "47:49",
+    "fin": "48:14",
+    "titulo_sugerido": "La predicción para el próximo partido",
+    "hook_texto": "La predicción",
     "criterio_principal": "prediccion",
     "score": 7,
-    "primer_segundo": "Arrancando un micro informativo con novedades",
-    "motivo": "Es un momento de predicción y novedades"
+    "primer_segundo": "El plantel ya piensa en Racing 20 horas",
+    "motivo": "Anuncia la predicción para el próximo partido"
   }
 ]

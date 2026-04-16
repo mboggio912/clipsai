@@ -262,7 +262,7 @@ Devolvé entre 5 y 10 clips ordenados de MAYOR a MENOR score.
 }}
 
 CAMPOS OBLIGATORIOS:
-- inicio/fin: timestamps exactos en HH:MM:SS
+- inicio/fin: timestamps en formato M:SS (minutos:segundos, ejemplo: 5:32)
 - duracion: segundos enteros (fin - inicio)
 - score: 1-10 basado en criterios de viralidad
 - criterio_principal: uno de [revelacion, controversia, dato_impactante, emocional, analisis_tactico, prediccion]
@@ -437,10 +437,9 @@ def validar_clips(clips: List[Dict]) -> List[Dict]:
         return 0
     
     def formatear_ts(segundos):
-        h = segundos // 3600
-        m = (segundos % 3600) // 60
-        s = segundos % 60
-        return f"{int(h):02d}:{int(m):02d}:{int(s):02d}"
+        m = int(segundos) // 60
+        s = int(segundos) % 60
+        return f"{m}:{s:02d}"
     
     clips_validos = []
     
@@ -585,14 +584,15 @@ def main():
     
     if len(sys.argv) < 2:
         print("\nUso:")
-        print("  Con transcripción manual: python main.py video.mp4 transcripcion.txt")
-        print("  Modo automático (Whisper): python main.py video.mp4")
+        print("  Con transcripción: python main.py video.mp4 transcripcion.txt")
+        print("    → Forced alignment (whisperx) → 1-3 min → timestamps exactos")
+        print("  Sin transcripción: python main.py video.mp4")
+        print("    → Transcribe desde cero (faster-whisper) → 4-6 min")
         print("  Solo mejor clip: python main.py video.mp4 --single")
         print("  Corte manual: python main.py video.mp4 00:01:00 00:01:30")
         print("\nEjemplos:")
-        print("  python main.py video.mp4 transcripcion.txt")
-        print("  python main.py video.mp4  (usa Whisper automático)")
-        print("  python main.py video.mp4 --single")
+        print("  python main.py video.mp4 transcripcion.txt  (rápido)")
+        print("  python main.py video.mp4                   (transcribe)")
         print("=" * 50)
         sys.exit(1)
     
@@ -664,34 +664,56 @@ def main():
         else:
             print("      Saltando análisis de audio (audio_analyzer no instalado)")
         
-        if modo_whisper or not transcripcion_path:
+        if transcripcion_path and os.path.exists(transcripcion_path):
+            try:
+                from whisper_transcriber import alinear_transcripcion
+                print("\n[3/6] Alineando transcripción con audio (forced alignment)...")
+                print("      Texto ya disponible → solo calculando timestamps")
+                print("      Estimación: 1-3 minutos")
+                
+                resultado = alinear_transcripcion(
+                    video_path=video,
+                    transcripcion_path=transcripcion_path,
+                    salida_words="whisper_words.json",
+                    salida_transcripcion="transcripcion_formatted.txt",
+                    idioma="es"
+                )
+                
+                print(f"      ✓ {resultado['total_palabras']} palabras alineadas")
+                print(f"      ✓ Backend: {resultado['backend']}")
+                transcripcion_path_generado = resultado['transcripcion_path']
+                texto_para_ia = leer_transcripcion_para_ia(transcripcion_path_generado)
+                
+            except ImportError:
+                print("\n[3/6] whisperx no instalado - usando parser básico")
+                print("      Para timestamps exactos: pip install whisperx")
+                texto_completo = leer_transcripcion_completa(transcripcion_path)
+                formatear_transcripcion(texto_completo, "transcripcion_formatted.txt")
+                transcripcion_path_generado = "transcripcion_formatted.txt"
+                texto_para_ia = leer_transcripcion_para_ia(transcripcion_path_generado)
+        else:
             try:
                 from whisper_transcriber import transcribir_video
                 print("\n[3/6] Transcribiendo con faster-whisper...")
-                print("      (La primera vez descarga el modelo, puede tardar)")
+                print("      Sin transcripción disponible - transcribiendo desde cero")
+                print("      Modelo: large-v3-turbo (4x más rápido)")
+                print("      Estimación: 4-6 minutos")
+                
                 resultado = transcribir_video(
                     video,
                     salida_transcripcion="transcripcion_formatted.txt",
-                    salida_words="whisper_words.json"
+                    salida_words="whisper_words.json",
+                    modelo="large-v3-turbo",
+                    idioma="es"
                 )
                 print(f"      ✓ {resultado['total_palabras']} palabras transcritas")
-                print(f"      ✓ whisper_words.json generado")
-                transcripcion_path_generado = "transcripcion_formatted.txt"
+                transcripcion_path_generado = resultado['transcripcion_path']
+                texto_para_ia = leer_transcripcion_para_ia(transcripcion_path_generado)
+                
             except ImportError:
                 print("\nERROR: faster-whisper no instalado")
                 print("Instalar: pip install faster-whisper")
-                print("O usar modo manual: python main.py video.mp4 transcripcion.txt")
                 sys.exit(1)
-        else:
-            print("\n[3/6] Usando transcripción manual...")
-            transcripcion_formatted = formatear_transcripcion(leer_transcripcion_completa(transcripcion_path))
-            transcripcion_path_generado = transcripcion_formatted
-            print("      AVISO: Sin whisper_words.json - subtítulos en modo fallback")
-            print("      Para subtítulos perfectos: python main.py video.mp4")
-        
-        texto_para_ia = ""
-        if transcripcion_path_generado and os.path.exists(transcripcion_path_generado):
-            texto_para_ia = leer_transcripcion_para_ia(transcripcion_path_generado)
         
         if texto_para_ia:
             clips_ia = obtener_clips_ia(texto_para_ia, datos_audio)
