@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
 """
-Transcripción automática con faster-whisper.
-Genera dos archivos:
-  - transcripcion_formatted.txt: para la IA (bloques legibles)
-  - whisper_words.json: timestamps por palabra para subtítulos perfectos
+Transcripción de video para detección de clips virales.
+Genera transcripcion_formatted.txt para que la IA analice el contenido.
 
-Usa el backend más rápido disponible (Distil-Whisper > Faster-Whisper).
+Modos:
+  A) Con transcripcion.txt manual → parser determinístico (instantáneo)
+  B) Sin transcripción → faster-whisper large-v3-turbo (5-6 min)
 """
 
 import os
-import json
+import re
 import subprocess
-from typing import List, Dict
+import time
+from typing import List
+
+
+def segundos_a_ms(seg: float) -> str:
+    m = int(seg // 60)
+    s = int(seg % 60)
+    return f"{m}:{s:02d}"
 
 
 def segundos_a_hhmmss(seg: float) -> str:
-    """Convierte float de segundos a HH:MM:SS."""
     h = int(seg // 3600)
     m = int((seg % 3600) // 60)
     s = int(seg % 60)
@@ -23,7 +29,6 @@ def segundos_a_hhmmss(seg: float) -> str:
 
 
 def detectar_device() -> tuple:
-    """Detecta el mejor device disponible."""
     try:
         import torch
         if torch.cuda.is_available():
@@ -33,485 +38,204 @@ def detectar_device() -> tuple:
     return ("cpu", "int8")
 
 
-def transcribir_video(
-    video_path: str,
-    salida_transcripcion: str = "transcripcion_formatted.txt",
-    salida_words: str = "whisper_words.json",
-    modelo: str = "whisper-small",
-    idioma: str = "es",
-    device: str = None,
-    compute_type: str = None,
-) -> dict:
-    """
-    Transcribe un video usando el backend más rápido disponible.
-
-    Args:
-        video_path: Ruta al video
-        salida_transcripcion: Archivo de transcripción formateada
-        salida_words: Archivo JSON con timestamps por palabra
-        modelo: Modelo ("distil-large-v3", "distil-medium", "small", "large-v3")
-        idioma: Código ISO del idioma
-        device: Override para device (None = auto-detectar)
-        compute_type: Override para compute type (None = auto-detectar)
-
-    Returns:
-        dict con {
-            "transcripcion_path": str,
-            "words_path": str,
-            "duracion": float,
-            "total_palabras": int,
-            "idioma_detectado": str,
-            "confianza_idioma": float,
-            "backend": str
-        }
-    """
-    import time
-    inicio_total = time.time()
-
-    print("=" * 50)
-    print("  TRANSCRIPCIÓN OPTIMIZADA")
-    print("=" * 50)
-
-    if device is None or compute_type is None:
-        device, compute_type = detectar_device()
-    print(f"  Device: {device} ({compute_type})")
-
-    words = []
-    info = {"duration": 0, "language": idioma, "language_probability": 0.95}
-    backend = "unknown"
-
-    if modelo.startswith("whisper-") or modelo.startswith("openai/"):
-        try:
-            words, info, backend = _transcribir_openai_whisper(video_path, modelo, idioma, device)
-        except Exception as e:
-            print(f"  OpenAI Whisper falló: {e}")
-            print("  Intentando con Faster-Whisper...")
-            words, info, backend = _transcribir_fasterwhisper(video_path, modelo, idioma, device, compute_type)
-    elif modelo.startswith("distil"):
-        try:
-            words, info, backend = _transcribir_distilwhisper(video_path, modelo, idioma, device)
-        except Exception as e:
-            print(f"  Distil-Whisper falló: {e}")
-            print("  Intentando con Faster-Whisper...")
-            words, info, backend = _transcribir_fasterwhisper(video_path, modelo, idioma, device, compute_type)
-    else:
-        words, info, backend = _transcribir_fasterwhisper(video_path, modelo, idioma, device, compute_type)
-
-    duracion_trans = time.time() - inicio_total
-
-    print(f"  ✓ Transcripción completada ({backend})")
-    print(f"    Duración video: {info['duration']:.1f}s")
-    print(f"    Idioma: {info['language']} (prob: {info['language_probability']:.1%})")
-    print(f"    Tiempo: {duracion_trans:.1f}s")
-    if info['duration'] > 0:
-        print(f"    Velocidad: {info['duration']/max(duracion_trans,0.1):.1f}x realtime")
-    print(f"    Palabras: {len(words)}")
-
-    with open(salida_words, 'w', encoding='utf-8') as f:
-        json.dump(words, f, ensure_ascii=False, indent=2)
-    print(f"    whisper_words.json: {salida_words}")
-
-    bloques = _generar_bloques(words)
-    with open(salida_transcripcion, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(bloques) + '\n')
-    print(f"    transcripcion_formatted.txt: {salida_transcripcion}")
-    print(f"    Bloques: {len(bloques)}")
-
-    duracion_total = time.time() - inicio_total
-    print(f"\n  Total: {duracion_total:.1f}s")
-    print("=" * 50)
-
-    return {
-        "transcripcion_path": salida_transcripcion,
-        "words_path": salida_words,
-        "duracion": info['duration'],
-        "total_palabras": len(words),
-        "idioma_detectado": info['language'],
-        "confianza_idioma": info['language_probability'],
-        "backend": backend
-    }
-
-
 def _extraer_audio(video_path: str) -> str:
-    """Extrae audio usando FFmpeg."""
-    audio_temp = "audio_whisper_temp.wav"
-    cmd = [
+    audio_temp = "audio_trans_temp.wav"
+    subprocess.run([
         "ffmpeg", "-y", "-i", video_path,
         "-vn", "-acodec", "pcm_s16le",
         "-ar", "16000", "-ac", "1",
         audio_temp
-    ]
-    subprocess.run(cmd, capture_output=True, check=True)
+    ], capture_output=True, check=True)
     return audio_temp
 
 
-def _transcribir_distilwhisper(video_path: str, modelo: str, idioma: str, device: str) -> tuple:
-    """Transcribe usando Distil-Whisper (6x más rápido)."""
-    import librosa
-    import numpy as np
-    import torch
-    from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
-
-    model_map = {
-        "distil-large-v3": "distil-whisper/distil-large-v3",
-        "distil-medium": "distil-whisper/distil-medium",
-        "distil-small": "distil-whisper/distil-small",
-    }
-
-    model_name = model_map.get(modelo, "distil-whisper/distil-large-v3")
-
-    print(f"  Backend: Distil-Whisper ({model_name})")
-
-    audio_temp = _extraer_audio(video_path)
-
-    print(f"  Cargando modelo...")
-    processor = AutoProcessor.from_pretrained(model_name)
-
-    torch_dtype = torch.float16 if device == "cuda" else torch.float32
-
-    model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        model_name,
-        torch_dtype=torch_dtype,
-        low_cpu_mem_usage=True,
-        use_safetensors=True,
-    )
-
-    if device != "cpu":
-        model = model.to(device)
-
-    print(f"  Cargando audio...")
-    audio, sr = librosa.load(audio_temp, sr=16000)
-    audio = audio.astype(np.float32)
-    if len(audio.shape) > 1:
-        audio = audio.mean(axis=1)
-
-    print(f"  Transcribiendo (6x más rápido que Whisper normal)...")
-
-    inputs = processor(
-        audio,
-        sampling_rate=16000,
-        return_tensors="pt",
-        return_token_timestamps=True
-    )
-
-    if device != "cpu":
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-
-    with torch.no_grad():
-        generated_ids = model.generate(
-            inputs["input_features"],
-            forced_decoder_ids=processor.get_decoder_prompt_ids(language=idioma, task="transcribe"),
-            max_new_tokens=440,
-            return_timestamps=True,
-            use_cache=True,
-        )
-
-    output = processor.batch_decode(generated_ids, output_word_offsets=True)
-
-    words = []
-    if output and len(output) > 0:
-        result = output[0]
-        if hasattr(result, 'word_offsets') and result.word_offsets:
-            for word_info in result.word_offsets:
-                words.append({
-                    "word": word_info["word"].strip(),
-                    "start": round(word_info["start"], 3),
-                    "end": round(word_info["end"], 3),
-                    "probability": 0.95,
-                    "segment_id": 0
-                })
-        elif hasattr(result, 'text'):
-            texto = result.text
-            duracion = len(audio) / 16000
-            palabras = texto.split()
-            if palabras and duracion > 0:
-                tiempo_por_palabra = duracion / len(palabras)
-                for i, p in enumerate(palabras):
-                    words.append({
-                        "word": p.strip(),
-                        "start": round(i * tiempo_por_palabra, 3),
-                        "end": round((i + 1) * tiempo_por_palabra, 3),
-                        "probability": 0.95,
-                        "segment_id": 0
-                    })
-
-    info = {
-        "duration": len(audio) / 16000,
-        "language": idioma,
-        "language_probability": 0.95
-    }
-
-    try:
-        os.remove(audio_temp)
-    except Exception:
-        pass
-
-    return words, info, "distilwhisper"
-
-
-def _transcribir_openai_whisper(video_path: str, modelo: str, idioma: str, device: str) -> tuple:
-    """Transcribe usando OpenAI Whisper (transformers) - rápido y preciso."""
-    import librosa
-    import numpy as np
-    import torch
-    from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
-    import os
-    os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
-
-    model_name = modelo if modelo.startswith("openai/") else f"openai/{modelo}"
-
-    model_map = {
-        "openai/whisper-small": "openai/whisper-small",
-        "openai/whisper-medium": "openai/whisper-medium",
-        "openai/whisper-base": "openai/whisper-base",
-    }
-    model_name = model_map.get(model_name, "openai/whisper-small")
-
-    print(f"  Backend: OpenAI Whisper ({model_name})")
-
-    audio_temp = _extraer_audio(video_path)
-
-    print(f"  Cargando modelo...")
-    processor = AutoProcessor.from_pretrained(model_name)
-
-    torch_dtype = torch.float16 if device == "cuda" else torch.float32
-
-    model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        model_name,
-        torch_dtype=torch_dtype,
-        low_cpu_mem_usage=True,
-    )
-
-    if device != "cpu":
-        model = model.to(device)
-
-    print(f"  Cargando audio...")
-    audio, sr = librosa.load(audio_temp, sr=16000)
-    audio = audio.astype(np.float32)
-    if len(audio.shape) > 1:
-        audio = audio.mean(axis=1)
-
-    print(f"  Transcribiendo...")
-
-    inputs = processor(
-        audio,
-        sampling_rate=16000,
-        return_tensors="pt"
-    )
-
-    if device != "cpu":
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-
-    with torch.no_grad():
-        generated_ids = model.generate(
-            inputs["input_features"],
-            language=idioma,
-            task="transcribe",
-            max_new_tokens=440,
-            use_cache=True,
-        )
-
-    output = processor.batch_decode(generated_ids, output_word_offsets=True)
-
-    words = []
-    texto_completo = ""
+def parsear_transcripcion_youtube(
+    ruta: str,
+    salida: str = "transcripcion_formatted.txt"
+) -> str:
+    """Parsea transcripción cruda de YouTube al formato M:SS - Texto."""
+    print("[3/6] Parseando transcripción de YouTube...")
     
-    if output and len(output) > 0:
-        result = output[0]
+    with open(ruta, 'r', encoding='utf-8') as f:
+        contenido = f.read().strip()
+    
+    lineas = contenido.split('\n')
+    segmentos = []
+    timestamp_actual = None
+    texto_pendiente = ""
+    
+    RE_TS = re.compile(r'^(\d{1,2}:\d{2}(?::\d{2})?)')
+    RE_DESC = re.compile(
+        r'^\d+\s+(?:minutos?\s+y\s+)?\d+\s*segundos?|'
+        r'^\d+\s+minutos?|'
+        r'^\d+\s+segundos?',
+        re.IGNORECASE
+    )
+    RE_LIMPIO = re.compile(r'^\d{2}:\d{2}:\d{2}\s*-\s*')
+    
+    def _ts_a_hhmmss(ts: str) -> str:
+        partes = ts.split(':')
+        if len(partes) == 2:
+            return f"00:{int(partes[0]):02d}:{int(partes[1]):02d}"
+        elif len(partes) == 3:
+            return f"{int(partes[0]):02d}:{int(partes[1]):02d}:{int(partes[2]):02d}"
+        return "00:00:00"
+    
+    for linea in lineas:
+        linea = linea.strip()
+        if not linea:
+            continue
         
-        if hasattr(result, 'word_offsets') and result.word_offsets and len(result.word_offsets) > 0:
-            for word_info in result.word_offsets:
-                words.append({
-                    "word": word_info["word"].strip(),
-                    "start": round(word_info["start"], 3),
-                    "end": round(word_info["end"], 3),
-                    "probability": 0.95,
-                    "segment_id": 0
-                })
-            texto_completo = " ".join(w["word"] for w in words)
-        elif hasattr(result, 'text'):
-            texto_completo = result.text
+        if RE_LIMPIO.match(linea):
+            if texto_pendiente and timestamp_actual:
+                segmentos.append((timestamp_actual, texto_pendiente.strip()))
+            timestamp_actual = linea[:8]
+            texto_pendiente = RE_LIMPIO.sub('', linea).strip()
+            continue
+        
+        match = RE_TS.match(linea)
+        if match:
+            if texto_pendiente and timestamp_actual:
+                segmentos.append((timestamp_actual, texto_pendiente.strip()))
+            
+            ts_raw = match.group(1)
+            timestamp_actual = _ts_a_hhmmss(ts_raw)
+            resto = linea[len(ts_raw):].strip()
+            
+            match_desc = RE_DESC.match(resto)
+            if match_desc:
+                resto = resto[len(match_desc.group(0)):].strip()
+            
+            texto_pendiente = resto
         else:
-            texto_completo = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+            if texto_pendiente:
+                texto_pendiente += " " + linea
     
-    if not words and texto_completo:
-        duracion = len(audio) / 16000
-        palabras = texto_completo.split()
-        if palabras and duracion > 0:
-            tiempo_por_palabra = duracion / len(palabras)
-            for i, p in enumerate(palabras):
-                words.append({
-                    "word": p.strip(),
-                    "start": round(i * tiempo_por_palabra, 3),
-                    "end": round((i + 1) * tiempo_por_palabra, 3),
-                    "probability": 0.95,
-                    "segment_id": 0
-                })
-            print(f"  AVISO: Modelo sin timestamps - usando estimación proporcional")
+    if texto_pendiente and timestamp_actual:
+        segmentos.append((timestamp_actual, texto_pendiente.strip()))
+    
+    with open(salida, 'w', encoding='utf-8') as f:
+        for ts, texto in segmentos:
+            if texto:
+                f.write(f"{ts} - {texto}\n")
+    
+    print(f"      ✓ {len(segmentos)} segmentos parseados")
+    if segmentos:
+        print(f"      Rango: {segmentos[0][0]} → {segmentos[-1][0]}")
+    print(f"      Guardado: {salida}")
+    
+    return salida
 
-    info = {
-        "duration": len(audio) / 16000,
-        "language": idioma,
-        "language_probability": 0.95
-    }
 
+def transcribir_video(
+    video_path: str,
+    salida: str = "transcripcion_formatted.txt",
+    modelo: str = "large-v3-turbo",
+    idioma: str = "es",
+) -> str:
+    """Transcribe video con faster-whisper y genera transcripcion_formatted.txt."""
+    print("[3/6] Transcribiendo con faster-whisper...")
+    print(f"      Modelo: {modelo}")
+    print(f"      Estimación: ~5-6 min para video de 11min en CPU")
+    
     try:
-        os.remove(audio_temp)
-    except Exception:
-        pass
-
-    return words, info, "openai-whisper"
-
-
-def _transcribir_fasterwhisper(video_path: str, modelo: str, idioma: str, device: str, compute_type: str) -> tuple:
-    """Transcribe usando Faster-Whisper."""
-    from faster_whisper import WhisperModel
-
-    modelos_disponibles = {
+        from faster_whisper import WhisperModel
+    except ImportError:
+        raise ImportError(
+            "faster-whisper no instalado.\n"
+            "Instalar: pip install faster-whisper"
+        )
+    
+    device, compute_type = detectar_device()
+    print(f"      Device: {device} ({compute_type})")
+    
+    modelo_mapa = {
+        "large-v3-turbo": "deepdml/faster-whisper-large-v3-turbo-ct2",
+        "turbo": "deepdml/faster-whisper-large-v3-turbo-ct2",
         "large-v3": "large-v3",
         "medium": "medium",
         "small": "small",
-        "base": "base",
-        "tiny": "tiny",
     }
-    model_name = modelos_disponibles.get(modelo, "large-v3")
-
-    print(f"  Backend: Faster-Whisper ({model_name})")
-
-    print(f"  Cargando modelo...")
-    model = WhisperModel(model_name, device=device, compute_type=compute_type)
-
+    model_name = modelo_mapa.get(modelo, "deepdml/faster-whisper-large-v3-turbo-ct2")
+    
     audio_temp = _extraer_audio(video_path)
-
-    print(f"  Transcribiendo...")
-
-    segments, info = model.transcribe(
-        audio_temp,
-        language=idioma,
-        word_timestamps=True,
-        vad_filter=True,
-        vad_parameters=dict(
-            min_silence_duration_ms=500,
-            speech_pad_ms=150
-        ),
-        beam_size=1,
-        best_of=1,
-        temperature=0.0,
-        condition_on_previous_text=False
-    )
-
-    segments_list = list(segments)
-
-    words = []
-    for seg_idx, segment in enumerate(segments_list):
-        if not segment.words:
-            continue
-        for word in segment.words:
-            words.append({
-                "word": word.word.strip(),
-                "start": round(word.start, 3),
-                "end": round(word.end, 3),
-                "probability": round(word.probability, 3),
-                "segment_id": seg_idx
-            })
-
-    info_dict = {
-        "duration": info.duration,
-        "language": info.language,
-        "language_probability": info.language_probability
-    }
-
+    
     try:
-        os.remove(audio_temp)
-    except Exception:
-        pass
-
-    return words, info_dict, "fasterwhisper"
-
-
-def _generar_bloques(words: list, max_palabras: int = 6) -> list:
-    """Genera bloques legibles para la IA."""
-    bloques = []
-    buffer = []
-    tiempo_inicio = None
-
-    for i, word_data in enumerate(words):
-        palabra = word_data['word']
-        t_inicio = word_data['start']
-
-        if tiempo_inicio is None:
-            tiempo_inicio = t_inicio
-
-        pausa = 0.0
-        if i > 0:
-            pausa = t_inicio - words[i - 1]['end']
-
-        fin_oracion = False
-        if buffer:
-            ultima = buffer[-1]
-            fin_oracion = ultima.rstrip().endswith(('.', '!', '?'))
-
-        nuevo_bloque = (
-            len(buffer) >= max_palabras or
-            pausa > 0.5 or
-            fin_oracion
+        print(f"      Cargando modelo {model_name}...")
+        model = WhisperModel(model_name, device=device, compute_type=compute_type)
+        
+        print(f"      Transcribiendo...")
+        segments_gen, info = model.transcribe(
+            audio_temp,
+            language=idioma,
+            word_timestamps=False,
+            vad_filter=True,
+            beam_size=5,
+            temperature=0.0,
         )
-
-        if nuevo_bloque and buffer:
-            texto = ' '.join(buffer).strip()
-            if texto:
-                ts = segundos_a_hhmmss(tiempo_inicio)
-                bloques.append(f"{ts} - {texto}")
-            buffer = []
-            tiempo_inicio = t_inicio
-
-        buffer.append(palabra)
-
-    if buffer and tiempo_inicio is not None:
-        texto = ' '.join(buffer).strip()
-        if texto:
-            ts = segundos_a_hhmmss(tiempo_inicio)
-            bloques.append(f"{ts} - {texto}")
-
-    return bloques
+        
+        duracion_total = info.duration
+        segmentos_texto = []
+        ultimo_tiempo = 0.0
+        
+        print(f"      Duración: {duracion_total:.0f}s")
+        print(f"      [{'░' * 40}] 0%", end='', flush=True)
+        
+        inicio = time.time()
+        
+        for segment in segments_gen:
+            segmentos_texto.append({
+                "ts": segundos_a_ms(segment.start),
+                "texto": segment.text.strip()
+            })
+            ultimo_tiempo = segment.end
+            
+            progreso = min(ultimo_tiempo / duracion_total, 1.0)
+            pct = int(progreso * 100)
+            llenos = int(progreso * 40)
+            barra = '█' * llenos + '░' * (40 - llenos)
+            
+            transcurrido = time.time() - inicio
+            velocidad = ultimo_tiempo / max(transcurrido, 0.1)
+            eta = int((duracion_total - ultimo_tiempo) / max(velocidad, 0.1))
+            
+            print(
+                f"\r      [{barra}] {pct}% | {velocidad:.1f}x | {eta}s restantes    ",
+                end='', flush=True
+            )
+        
+        print(f"\r      [{'█'*40}] 100% ✓                              ")
+        
+        with open(salida, 'w', encoding='utf-8') as f:
+            for seg in segmentos_texto:
+                if seg['texto']:
+                    f.write(f"{seg['ts']} - {seg['texto']}\n")
+        
+        print(f"      ✓ {len(segmentos_texto)} segmentos transcritos")
+        print(f"      Guardado: {salida}")
+        
+        return salida
+        
+    finally:
+        try:
+            os.remove(audio_temp)
+        except:
+            pass
 
 
 if __name__ == "__main__":
     import sys
-
+    
     if len(sys.argv) < 2:
-        print("Uso: python whisper_transcriber.py video.mp4 [modelo]")
-        print("  Modelos disponibles (más rápido primero):")
-        print("    whisper-small    - Rápido (~2-4 min para 30min video) (recomendado)")
-        print("    whisper-medium   - Balance velocidad/calidad (~5-8 min)")
-        print("    large-v3         - Mejor calidad, más lento (~15-30 min)")
-        print()
-        print("  Por defecto usa: whisper-small")
+        print("Uso:")
+        print("  Con transcripción: python whisper_transcriber.py transcripcion.txt")
+        print("  Con video:         python whisper_transcriber.py video.mp4")
         sys.exit(1)
-
-    video = sys.argv[1]
-    modelo = sys.argv[2] if len(sys.argv) > 2 else "whisper-small"
-    salida_trans = sys.argv[3] if len(sys.argv) > 3 else "transcripcion_formatted.txt"
-    salida_words = sys.argv[4] if len(sys.argv) > 4 else "whisper_words.json"
-
-    try:
-        print(f"\nModelo: {modelo}")
-        print(f"Video: {video}\n")
-
-        resultado = transcribir_video(
-            video,
-            salida_transcripcion=salida_trans,
-            salida_words=salida_words,
-            modelo=modelo
-        )
-
-        print(f"\n✓ Listo:")
-        print(f"  Transcripción: {resultado['transcripcion_path']}")
-        print(f"  Words JSON: {resultado['words_path']}")
-        print(f"  Palabras: {resultado['total_palabras']}")
-        print(f"  Backend: {resultado['backend']}")
-    except Exception as e:
-        print(f"Error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    
+    entrada = sys.argv[1]
+    salida = sys.argv[2] if len(sys.argv) > 2 else "transcripcion_formatted.txt"
+    
+    if entrada.endswith('.txt'):
+        parsear_transcripcion_youtube(entrada, salida)
+    else:
+        transcribir_video(entrada, salida)

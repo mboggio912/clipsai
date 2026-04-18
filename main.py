@@ -664,34 +664,25 @@ def main():
         else:
             print("      Saltando análisis de audio (audio_analyzer no instalado)")
         
-        if modo_whisper or not transcripcion_path:
-            try:
-                from whisper_transcriber import transcribir_video
-                print("\n[3/6] Transcribiendo con faster-whisper...")
-                print("      (La primera vez descarga el modelo, puede tardar)")
-                resultado = transcribir_video(
-                    video,
-                    salida_transcripcion="transcripcion_formatted.txt",
-                    salida_words="whisper_words.json"
-                )
-                print(f"      ✓ {resultado['total_palabras']} palabras transcritas")
-                print(f"      ✓ whisper_words.json generado")
-                transcripcion_path_generado = "transcripcion_formatted.txt"
-            except ImportError:
-                print("\nERROR: faster-whisper no instalado")
-                print("Instalar: pip install faster-whisper")
-                print("O usar modo manual: python main.py video.mp4 transcripcion.txt")
-                sys.exit(1)
+        if transcripcion_path and os.path.exists(transcripcion_path):
+            from whisper_transcriber import parsear_transcripcion_youtube
+            print("\n[3/6] Parseando transcripción...")
+            parsear_transcripcion_youtube(
+                transcripcion_path,
+                "transcripcion_formatted.txt"
+            )
+            texto_para_ia = leer_transcripcion_para_ia("transcripcion_formatted.txt")
+            print("      Modo: transcripción manual (instantáneo)")
         else:
-            print("\n[3/6] Usando transcripción manual...")
-            transcripcion_formatted = formatear_transcripcion(leer_transcripcion_completa(transcripcion_path))
-            transcripcion_path_generado = transcripcion_formatted
-            print("      AVISO: Sin whisper_words.json - subtítulos en modo fallback")
-            print("      Para subtítulos perfectos: python main.py video.mp4")
-        
-        texto_para_ia = ""
-        if transcripcion_path_generado and os.path.exists(transcripcion_path_generado):
-            texto_para_ia = leer_transcripcion_para_ia(transcripcion_path_generado)
+            from whisper_transcriber import transcribir_video
+            print("\n[3/6] Transcribiendo con faster-whisper...")
+            print("      Modelo: large-v3-turbo (4x más rápido)")
+            transcribir_video(
+                video,
+                "transcripcion_formatted.txt"
+            )
+            texto_para_ia = leer_transcripcion_para_ia("transcripcion_formatted.txt")
+            print("      Modo: faster-whisper automático")
         
         if texto_para_ia:
             clips_ia = obtener_clips_ia(texto_para_ia, datos_audio)
