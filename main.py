@@ -19,9 +19,10 @@ except ImportError:
     AUDIO_ANALYZER_AVAILABLE = False
 
 
-API_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "llama-3.3-70b-versatile"
-TIMEOUT = 120
+OPENAI_API_KEY = "sk-487215910f5c40b4be43deafca086d19"
+API_ENDPOINT = "https://api.deepseek.com/v1/chat/completions"
+MODEL = "deepseek-chat"
+TIMEOUT = 180
 
 
 def verificar_ffmpeg() -> bool:
@@ -72,6 +73,22 @@ def analizar_audio_video(audio_path: str = "audio.mp3", max_eventos: int = 30) -
     
     try:
         eventos = analizar_audio(audio_path, "audio.json")
+        
+        if os.path.exists("momentos_virales.json"):
+            with open("momentos_virales.json", "r", encoding="utf-8") as f:
+                momentos = json.load(f)
+            if momentos and "momentos" in momentos:
+                eventos_cluster = momentos["momentos"]
+                print(f"      Momentos virales del clustering: {len(eventos_cluster)}")
+                
+                for mc in eventos_cluster[:5]:
+                    eventos.append({
+                        "timestamp": mc.get("timestamp", "0:00"),
+                        "intensidad": mc.get("intensidad", 7.0),
+                        "tipo": "momento_viral",
+                        "score_ia": mc.get("score_ia", 8),
+                        "criterio": mc.get("criterio_principal", "viral"),
+                    })
         
         eventos = sorted(eventos, key=lambda x: x.get("intensidad", 0), reverse=True)
         eventos_top = eventos[:50]
@@ -179,9 +196,125 @@ def _parse_timestamp(ts: str) -> tuple:
     return (0, 0, 0)
 
 
-def construir_prompt(transcripcion: str, datos_audio: List[Dict]) -> str:
+def preparar_transcripcion_para_ia(ruta: str = "transcripcion_formatted.txt", max_segmentos: int = 150) -> str:
+    """
+    Comprime la transcripción para la IA mientras preserva todos los timestamps.
+    Mantiene estructura completa pero elimina redundancias.
+    """
+    print("[3.8/6] Preparando transcripción para IA...")
+    
+    with open(ruta, "r", encoding="utf-8") as f:
+        lineas = [l.strip() for l in f.readlines() if l.strip()]
+    
+    segmentos = []
+    for linea in lineas:
+        if " - " in linea:
+            partes = linea.split(" - ", 1)
+            ts = partes[0].strip()
+            texto = partes[1].strip()
+            segmentos.append((ts, texto))
+    
+    if not segmentos:
+        return ""
+    
+    total_segmentos = len(segmentos)
+    print(f"      Total segmentos: {total_segmentos}")
+    
+    if total_segmentos <= max_segmentos:
+        resultado = "\n".join([f"{ts} - {texto}" for ts, texto in segmentos])
+        print(f"      Sin comprimir (≤{max_segmentos} segmentos)")
+        return resultado
+    
+    factor = total_segmentos / max_segmentos
+    paso = int(factor)
+    if paso < 1:
+        paso = 1
+    
+    segmentos_comprimidos = []
+    for i in range(0, total_segmentos, paso):
+        ts, texto = segmentos[i]
+        
+        if i + paso < total_segmentos:
+            textos_combined = [texto]
+            for j in range(i + 1, min(i + paso, total_segmentos)):
+                textos_combined.append(segmentos[j][1])
+            texto = " ".join(textos_combined)
+        
+        segmentos_comprimidos.append((ts, texto))
+    
+    resultado = "\n".join([f"{ts} - {texto}" for ts, texto in segmentos_comprimidos])
+    print(f"      Comprimida: {len(segmentos_comprimidos)} segmentos (factor {factor:.1f}x)")
+    
+    return resultado
+
+
+def enriquecer_datos_para_ia(datos_audio: List[Dict], transcripcion_path: str = "transcripcion_formatted.txt") -> Dict:
+    """
+    Correlaciona eventos de audio con segmentos de transcripción.
+    Returns un diccionario con datos enriquecidos para la IA.
+    """
+    print("[3.9/6] Enriqueciendo datos para IA...")
+    
+    with open(transcripcion_path, "r", encoding="utf-8") as f:
+        lineas = [l.strip() for l in f.readlines() if l.strip() and " - " in l]
+    
+    segmentos_ts = []
+    for linea in lineas:
+        partes = linea.split(" - ", 1)
+        ts = partes[0].strip()
+        texto = partes[1].strip()
+        segmentos_ts.append((ts, texto))
+    
+    def ts_a_segundos(ts: str) -> float:
+        partes = ts.split(":")
+        if len(partes) == 3:
+            return int(partes[0]) * 3600 + int(partes[1]) * 60 + int(partes[2])
+        elif len(partes) == 2:
+            return int(partes[0]) * 60 + int(partes[1])
+        return 0.0
+    
+    eventos_enriquecidos = []
+    
+    for evento in datos_audio:
+        ts_evento = evento.get("timestamp", "0:00")
+        seg_evento = ts_a_segundos(ts_evento)
+        
+        mejor_segmento = None
+        mejor_distancia = float("inf")
+        
+        for ts, texto in segmentos_ts:
+            seg_ts = ts_a_segundos(ts)
+            distancia = abs(seg_evento - seg_ts)
+            if distancia < mejor_distancia:
+                mejor_distancia = distancia
+                mejor_segmento = (ts, texto)
+        
+        if mejor_segmento and mejor_distancia < 30:
+            eventos_enriquecidos.append({
+                "timestamp": ts_evento,
+                "intensidad": evento.get("intensidad", 5),
+                "tipo": evento.get("tipo", "evento"),
+                "texto_correlacionado": mejor_segmento[1][:200],
+                "timestamp_transcripcion": mejor_segmento[0],
+                "distancia_segundos": mejor_distancia,
+            })
+    
+    print(f"      Eventos enriquecidos: {len(eventos_enriquecidos)}")
+    
+    return {
+        "eventos": eventos_enriquecidos,
+        "total_segmentos": len(segmentos_ts),
+        "correlacion_exitosa": len(eventos_enriquecidos),
+    }
+
+
+def construir_prompt(transcripcion: str, datos_audio: List[Dict], datos_enriquecidos: Dict = None) -> str:
     """Construye el prompt para la IA."""
-    audio_json = json.dumps(datos_audio, indent=2, ensure_ascii=False)
+    
+    if datos_enriquecidos and datos_enriquecidos.get("eventos"):
+        audio_json = json.dumps(datos_enriquecidos["eventos"], indent=2, ensure_ascii=False)
+    else:
+        audio_json = json.dumps(datos_audio, indent=2, ensure_ascii=False)
     
     return f"""Sos un experto en contenido viral para TikTok, Instagram Reels y YouTube Shorts especializado en contenido deportivo y periodístico en español rioplatense. Tu tarea es analizar una transcripción y datos de audio para identificar los momentos con mayor potencial viral. Conocés en profundidad qué engancha a la audiencia hispanohablante de fútbol/deportes en redes sociales. DEVOLVÉ ÚNICAMENTE UN ARRAY JSON VÁLIDO. Sin texto antes ni después. Sin markdown. Empezá con [ y terminá con ].
 
@@ -214,23 +347,24 @@ SEÑALES DE AUDIO QUE AMPLIFICAN EL SCORE:
 REGLAS PARA DEFINIR INICIO Y FIN DE CADA CLIP:
 
 INICIO del clip:
-- Empezar 2-3 segundos ANTES de la frase clave para dar contexto
+- OBLIGATORIO: empezar 3-4 segundos ANTES de la frase clave para dar contexto completo
 - Nunca cortar en medio de una oración
 - Preferir iniciar después de una pausa natural (silencio en datos de audio)
 - El primer segundo debe enganchar: pregunta, dato impactante o afirmación fuerte
 
 FIN del clip:
-- Terminar en punto final de idea, nunca a mitad de frase
-- Ideal: terminar con conclusión o frase de impacto
+- OBLIGATORIO: terminar 3-4 segundos DESPUÉS de que cierre la idea
+- Terminar en punto final de idea (punto, no coma), nunca a mitad de frase
+- Ideal: terminar con conclusión, frase de impacto, o transición natural
 - Dejar al espectador con ganas de saber más (cliffhanger) cuando sea posible
-- Máximo 60 segundos, mínimo 20 segundos
-- El punto óptimo es 30-45 segundos para TikTok/Reels
+- OBLIGATORIO: clips de 30-90 segundos (mínimo 30, máximo 90)
+- El punto óptimo es 45-70 segundos para TikTok/Reels
 
 EVITAR:
 - Clips que empiezan con "y", "pero", "entonces" sin contexto previo
-- Clips que terminan con "..." o frase inconclusa sin intención
+- Clips que cortan la idea a la mitad (debe cerrar la idea completamente)
 - Dos clips con el mismo tema o personaje
-- Clips de más de 55 segundos salvo que sea una revelación excepcional
+- Clips de más de 80 segundos salvo que sea una revelación excepcional
 
 DATOS DE AUDIO DEL VIDEO:
 {audio_json}
@@ -245,7 +379,13 @@ TRANSCRIPCIÓN COMPLETA:
 {transcripcion}
 
 FORMATO JSON DE SALIDA OBLIGATORIO:
-Devolvé entre 5 y 10 clips ordenados de MAYOR a MENOR score.
+REGLAS OBLIGATORIAS DE DURACIÓN:
+- CADA clip debe durar entre 30 y 90 SEGUNDOS
+- NO ACCEPTAR clips menores a 30 segundos
+- NO ACCEPTAR clips mayores a 90 segundos
+- La duración se calcula como: fin - inicio
+- Si un clip dura menos de 30s, NO ES VÁLIDO - debes extenderlo
+- La IA debe asegurar que cada clip propuesto cumpla 30-90s
 [
 {{
 "inicio": "HH:MM:SS",
@@ -282,13 +422,13 @@ REGLAS FINALES:
 - Empezá con [ y terminá con ]"""
 
 
-def obtener_clips_ia(transcripcion: str, datos_audio: List[Dict]) -> List[Dict]:
+def obtener_clips_ia(transcripcion: str, datos_audio: List[Dict], datos_enriquecidos: Dict = None) -> List[Dict]:
     """Envía datos a la IA y retorna los clips detectados."""
-    print("[4/6] Analizando con IA (Groq)...")
+    print("[4/6] Analizando con IA (DeepSeek)...")
     
-    api_key = os.environ.get("GROQ_API_KEY")
+    api_key = OPENAI_API_KEY
     if not api_key:
-        raise ValueError("Define GROQ_API_KEY")
+        raise ValueError("Define OPENAI_API_KEY")
     
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -300,7 +440,7 @@ def obtener_clips_ia(transcripcion: str, datos_audio: List[Dict]) -> List[Dict]:
         "messages": [
             {
                 "role": "user",
-                "content": construir_prompt(transcripcion, datos_audio)
+                "content": construir_prompt(transcripcion, datos_audio, datos_enriquecidos)
             }
         ]
     }
@@ -444,13 +584,14 @@ def validar_clips(clips: List[Dict]) -> List[Dict]:
     
     clips_validos = []
     
+    print(f"      DEBUG: {len(clips)} clips recibidos de IA")
+    
     for i, clip in enumerate(clips):
         if "inicio" not in clip or "fin" not in clip:
+            print(f"      DEBUG clip {i+1}: sin inicio/fin")
             continue
         
-        score = clip.get("score", 7)
-        if score < 7:
-            continue
+        score = clip.get("score", 5)
         
         inicio = str(clip["inicio"])
         fin = str(clip["fin"])
@@ -458,12 +599,18 @@ def validar_clips(clips: List[Dict]) -> List[Dict]:
         try:
             inicio_seg = convertir_ts(inicio)
             fin_seg = convertir_ts(fin)
-        except:
+        except Exception as e:
+            print(f"      DEBUG clip {i+1}: error parseo ts: {e}")
             continue
         
         duracion = fin_seg - inicio_seg
         
-        if duracion < 20 or duracion > 60:
+        if duracion < 30 or duracion > 90:
+            print(f"      DEBUG clip {i+1}: duracion {duracion}s fuera de rango (15-120)")
+            continue
+        
+        if score < 5:
+            print(f"      DEBUG clip {i+1}: score {score} < 5")
             continue
         
         criterio = clip.get("criterio_principal", "otro")
@@ -685,7 +832,9 @@ def main():
             print("      Modo: faster-whisper automático")
         
         if texto_para_ia:
-            clips_ia = obtener_clips_ia(texto_para_ia, datos_audio)
+            datos_enriquecidos = enriquecer_datos_para_ia(datos_audio, "transcripcion_formatted.txt")
+            texto_para_ia = preparar_transcripcion_para_ia("transcripcion_formatted.txt")
+            clips_ia = obtener_clips_ia(texto_para_ia, datos_audio, datos_enriquecidos)
         else:
             clips_ia = []
         

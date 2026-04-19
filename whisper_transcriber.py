@@ -49,11 +49,29 @@ def _extraer_audio(video_path: str) -> str:
     return audio_temp
 
 
+def _remover_descripcion(texto: str) -> str:
+    """
+    Remueve descripción de tiempo al inicio del texto.
+    Maneja texto pegado sin espacio.
+    """
+    patrones_desc = [
+        re.compile(r'^\d+\s+minutos?\s+y\s+\d+\s+segundos?', re.IGNORECASE),
+        re.compile(r'^\d+\s+minutos?(?!\s+y)', re.IGNORECASE),
+        re.compile(r'^\d+\s+segundos?', re.IGNORECASE),
+    ]
+    for patron in patrones_desc:
+        m = patron.match(texto)
+        if m:
+            resto = texto[len(m.group(0)):]
+            return resto.lstrip()
+    return texto
+
+
 def parsear_transcripcion_youtube(
     ruta: str,
     salida: str = "transcripcion_formatted.txt"
 ) -> str:
-    """Parsea transcripción cruda de YouTube al formato M:SS - Texto."""
+    """Parsea transcripción cruda de YouTube al formato HH:MM:SS - Texto."""
     print("[3/6] Parseando transcripción de YouTube...")
     
     with open(ruta, 'r', encoding='utf-8') as f:
@@ -65,12 +83,6 @@ def parsear_transcripcion_youtube(
     texto_pendiente = ""
     
     RE_TS = re.compile(r'^(\d{1,2}:\d{2}(?::\d{2})?)')
-    RE_DESC = re.compile(
-        r'^\d+\s+(?:minutos?\s+y\s+)?\d+\s*segundos?|'
-        r'^\d+\s+minutos?|'
-        r'^\d+\s+segundos?',
-        re.IGNORECASE
-    )
     RE_LIMPIO = re.compile(r'^\d{2}:\d{2}:\d{2}\s*-\s*')
     
     def _ts_a_hhmmss(ts: str) -> str:
@@ -100,12 +112,8 @@ def parsear_transcripcion_youtube(
             
             ts_raw = match.group(1)
             timestamp_actual = _ts_a_hhmmss(ts_raw)
-            resto = linea[len(ts_raw):].strip()
-            
-            match_desc = RE_DESC.match(resto)
-            if match_desc:
-                resto = resto[len(match_desc.group(0)):].strip()
-            
+            resto = linea[len(ts_raw):]
+            resto = _remover_descripcion(resto.strip())
             texto_pendiente = resto
         else:
             if texto_pendiente:
@@ -122,6 +130,18 @@ def parsear_transcripcion_youtube(
     print(f"      ✓ {len(segmentos)} segmentos parseados")
     if segmentos:
         print(f"      Rango: {segmentos[0][0]} → {segmentos[-1][0]}")
+        print(f"      Verificación - primeros 3 segmentos:")
+        for ts, txt in segmentos[:3]:
+            print(f"        {ts}: {txt[:70]}")
+    
+    if segmentos:
+        primer_ts = segmentos[0][0]
+        primer_texto = segmentos[0][1]
+        if primer_ts != "00:00:00":
+            print(f"      AVISO: Primer timestamp es {primer_ts}, esperado 00:00:00")
+        if primer_texto and primer_texto[0].isdigit():
+            print(f"      AVISO: Primer texto empieza con número: '{primer_texto[:30]}'")
+    
     print(f"      Guardado: {salida}")
     
     return salida

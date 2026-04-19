@@ -129,8 +129,7 @@ class VideoEditor:
             
             filtro = (
                 f"crop={ancho_crop}:{alto}:{crop_x}:0,"
-                f"scale={self.ancho_final}:{self.alto_final},"
-                f"eq=brightness=0.02:saturation=1.1"
+                f"scale={self.ancho_final}:{self.alto_final}"
             )
             
             subprocess.run([
